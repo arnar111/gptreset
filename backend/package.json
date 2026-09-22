@@ -1,0 +1,8 @@
+{
+  "name": "codex-reset-tracker-backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "data": [
+    {
+      "id": "2098685367058612394",
+      "reset_type": "regular",
+      "announced_at": "2026-09-12T08:09:17.000Z",
+      "text": "Reset all propagated. Sweet dreams. https://t.co/VgKVUixoJG",
+      "source": {
+        "type": "x_post",
+        "author": "thsottiaux",
+        "url": "https://x.com/thsottiaux/status/2098685367058612394"
+      }
+    },
+    {
+      "id": "observed-2097043464538264003",
+      "reset_type": "regular",
+      "announced_at": "2026-09-08T01:56:57.501Z",
+      "text": "All reset for everyone. Enjoy the week with Astra. https://t.co/WBM38JotGO",
+      "source": {
+        "type": "observed",
+        "url": "https://x.com/thsottiaux/status/2097174560412246215"
+      },
+      "editor_note": "noncritical extra field"
+    },
+    {
+      "id": "2096035437299237298",
+      "reset_type": "banked",
+      "announced_at": "2026-09-05T00:39:25.000Z",
+      "source": {
+        "type": "x_post",
+        "author": "thsottiaux",
+        "url": "https://x.com/thsottiaux/status/2096035437299237298"
+      }
+    },
+    "not-an-object",
+    {
+      "reset_type": "banked",
+      "text": "missing announced_at should be skipped"
+    },
+    {
+      "id": "2095651088502591861",
+      "reset_type": "banked",
+      "announced_at": "2026-09-03T23:12:09.000Z",
+      "text": "We will give one banked reset for every day you don't have access to Astra on your paid ChatGPT plan, starting today.",
+      "source": {
+        "type": "x_post",
+        "author": "thsottiaux",
+        "url": "https://x.com/thsottiaux/status/2095651088502591861"
+      }
+    }
+  ],
+  "pagination": {
+    "has_more": true,
+    "next_cursor": "cursor-token"
+  },
+  "meta": {
+    "api_version": "v1",
+    "generated_at": "2026-09-22T16:20:20.989Z"
+  }
+}

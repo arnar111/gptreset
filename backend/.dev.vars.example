@@ -1,0 +1,9 @@
+# Copy to backend/.dev.vars for `wrangler dev`. Never commit .dev.vars.
+# Create the key in Apple Developer → Certificates, Identifiers & Profiles → Keys.
+# Enable Apple Push Notifications service (APNs). Download the .p8 once.
+
+APNS_KEY_ID=
+APNS_TEAM_ID=
+APNS_BUNDLE_ID=com.arnar111.codexresettracker
+# PEM contents of the .p8 file. Keep the BEGIN/END lines. Newlines may be written as \n.
+APNS_PRIVATE_KEY=
