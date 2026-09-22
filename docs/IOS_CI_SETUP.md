@@ -93,7 +93,7 @@ Also copy the **Team ID** from [Membership details](https://developer.apple.com/
 
 Simulator compiles stay on **Automatic** signing and do not use a distribution identity.
 
-The TestFlight archive uses **Manual** signing and the **Apple Distribution** identity. Xcode rejects Automatic signing combined with that identity. Before the archive, the workflow uses the API key to create the three App IDs if they are missing, one Apple Distribution certificate, and an App Store profile for each bundle id. App Store profiles do not contain device UDIDs. The workflow does not register devices.
+The TestFlight archive uses **Manual** signing and the **Apple Distribution** identity. Xcode rejects Automatic signing combined with that identity. Before the archive, the workflow uses the API key to create the three App IDs if they are missing, one Apple Distribution certificate, and an App Store profile for each bundle id. The certificate’s private key is encrypted and kept in the Actions cache so the next run reuses it instead of minting another certificate. App Store profiles do not contain device UDIDs. The workflow does not register devices.
 
 The IPA export uses method `app-store-connect` (Apple’s current name for `app-store`), destination `export`, and the same manual distribution profiles. `xcrun altool` (or Transporter) uploads it.
 

@@ -126,9 +126,25 @@ jobs:
           fi
           echo "AUTH_KEY_PATH=$key" >> "$GITHUB_ENV"
 
+      - name: Restore distribution identity
+        if: steps.gate.outputs.upload == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: build/signing/identity.p12.enc
+          key: apple-distribution-identity-${{ github.run_id }}
+          restore-keys: apple-distribution-identity-
+
       - name: Prepare App Store profiles
         if: steps.gate.outputs.upload == 'true'
         run: python3 scripts/ci/prepare-appstore-signing.py
+
+      - name: Save distribution identity
+        if: always() && steps.gate.outputs.upload == 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: build/signing/identity.p12.enc
+          key: apple-distribution-identity-${{ github.run_id }}
 
       - name: Archive Release
         if: steps.gate.outputs.upload == 'true'
@@ -155,7 +171,6 @@ jobs:
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
-            "CODE_SIGN_IDENTITY[sdk=iphoneos*]=Apple Distribution" \
             'PROVISIONING_PROFILE_SPECIFIER=$(PRODUCT_BUNDLE_IDENTIFIER) AppStore' \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
 

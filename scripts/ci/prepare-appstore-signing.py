@@ -5,15 +5,16 @@ Uses the App Store Connect API key already installed for xcodebuild.
 Manual signing needs a local Apple Distribution identity and an App Store
 profile per bundle id. Those profiles are not tied to device UDIDs.
 
-The distribution private key stays on this runner. Certificates whose subject
-is the CI name below are revoked before a new one is created, so repeats do
-not pile up against Apple's certificate limit. Other certificates are left
-alone.
+The distribution private key is encrypted with the API key and stored in the
+Actions cache so the next run reuses the same certificate. Certificates whose
+private key was lost with a runner are listed below and revoked before a new
+one is created. Other certificates are left alone.
 """
 
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import os
 import plistlib
@@ -26,8 +27,9 @@ from pathlib import Path
 
 API = "https://api.appstoreconnect.apple.com"
 CI_CERT_CN = "GitHub Actions Codex Reset Tracker"
-# Created on a runner whose keychain rejected the PKCS#12, so the private key is gone.
-ORPHAN_CERTIFICATE_IDS = ("T67YA5RL8R",)
+# Private keys for these certificates died with the runner (bad PKCS#12, then a
+# failed archive). Apple rewrites the subject, so a common-name scan cannot find them.
+ORPHAN_CERTIFICATE_IDS = ("T67YA5RL8R", "2X7DNBW38Y")
 GROUP = "group.com.arnar111.codexresettracker"
 BUNDLES = (
     ("com.arnar111.codexresettracker", "Codex Reset Tracker", ("PUSH_NOTIFICATIONS", "APP_GROUPS")),
@@ -305,7 +307,148 @@ def run_secret(args: list[str], secret: str) -> None:
     fail(f"{shown} failed: {detail}")
 
 
-def install_identity(work: Path) -> None:
+def encryption_passfile(work: Path, api_key_path: str) -> Path:
+    digest = hashlib.sha256(Path(api_key_path).read_bytes()).hexdigest()
+    path = work / "enc.pass"
+    path.write_text(digest)
+    path.chmod(0o600)
+    return path
+
+
+def store_encrypted_identity(work: Path, p12: Path, p12_password: str, certificate_id: str, api_key_path: str) -> None:
+    plain = work / "identity.bundle"
+    plain.write_text(
+        json.dumps(
+            {
+                "certificateId": certificate_id,
+                "p12": base64.b64encode(p12.read_bytes()).decode("ascii"),
+                "password": p12_password,
+            }
+        )
+    )
+    plain.chmod(0o600)
+    enc = work / "identity.p12.enc"
+    passfile = encryption_passfile(work, api_key_path)
+    result = subprocess.run(
+        [
+            "openssl",
+            "enc",
+            "-aes-256-cbc",
+            "-pbkdf2",
+            "-in",
+            str(plain),
+            "-out",
+            str(enc),
+            "-pass",
+            f"file:{passfile}",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    plain.unlink(missing_ok=True)
+    passfile.unlink(missing_ok=True)
+    if result.returncode != 0:
+        fail("Could not store the distribution identity for the next run.")
+    print(f"Saved encrypted distribution identity for {certificate_id}")
+
+
+def import_p12(work: Path, p12: Path, password: str) -> None:
+    keychain = work / "ci.keychain-db"
+    run_secret(["security", "create-keychain", "-p", password, str(keychain)], password)
+    run_secret(["security", "set-keychain-settings", "-lut", "21600", str(keychain)], password)
+    run_secret(["security", "unlock-keychain", "-p", password, str(keychain)], password)
+    listed = subprocess.run(["security", "list-keychains", "-d", "user"], capture_output=True, text=True, check=False)
+    if listed.returncode != 0:
+        fail("Could not read the login keychains.")
+    existing = [part.strip().strip('"') for part in listed.stdout.splitlines() if part.strip()]
+    run_secret(["security", "list-keychains", "-d", "user", "-s", str(keychain), *existing], password)
+    run_secret(["security", "default-keychain", "-s", str(keychain)], password)
+    run_secret(
+        [
+            "security",
+            "import",
+            str(p12),
+            "-k",
+            str(keychain),
+            "-P",
+            password,
+            "-T",
+            "/usr/bin/codesign",
+            "-T",
+            "/usr/bin/security",
+        ],
+        password,
+    )
+    run_secret(
+        ["security", "set-key-partition-list", "-S", "apple-tool:,apple:,codesign:", "-s", "-k", password, str(keychain)],
+        password,
+    )
+    identities = subprocess.run(
+        ["security", "find-identity", "-v", "-p", "codesigning", str(keychain)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    print(identities.stdout)
+    if "Apple Distribution" not in identities.stdout:
+        fail("The distribution certificate is not in the keychain as Apple Distribution.")
+
+
+def load_cached_identity(token: str, work: Path, api_key_path: str) -> str:
+    enc = work / "identity.p12.enc"
+    if not enc.exists():
+        return ""
+    plain = work / "identity.bundle"
+    passfile = encryption_passfile(work, api_key_path)
+    result = subprocess.run(
+        [
+            "openssl",
+            "enc",
+            "-d",
+            "-aes-256-cbc",
+            "-pbkdf2",
+            "-in",
+            str(enc),
+            "-out",
+            str(plain),
+            "-pass",
+            f"file:{passfile}",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    passfile.unlink(missing_ok=True)
+    if result.returncode != 0 or not plain.exists():
+        plain.unlink(missing_ok=True)
+        print("::warning::Cached distribution identity could not be opened. A new certificate will be created.")
+        return ""
+    try:
+        bundle = json.loads(plain.read_text())
+    except json.JSONDecodeError:
+        plain.unlink(missing_ok=True)
+        return ""
+    plain.unlink(missing_ok=True)
+    certificate_id = str(bundle.get("certificateId") or "")
+    password = str(bundle.get("password") or "")
+    p12_b64 = str(bundle.get("p12") or "")
+    if not certificate_id or not password or not p12_b64:
+        return ""
+    status, _payload = api(token, "GET", f"/v1/certificates/{certificate_id}")
+    if status != 200:
+        print(f"Cached certificate {certificate_id} is no longer in the Apple account.")
+        return ""
+    p12 = work / "distribution.p12"
+    p12.write_bytes(base64.b64decode(p12_b64))
+    p12.chmod(0o600)
+    import_p12(work, p12, password)
+    p12.unlink(missing_ok=True)
+    print(f"Reusing Apple Distribution certificate {certificate_id}")
+    return certificate_id
+
+
+def install_identity(work: Path, certificate_id: str, api_key_path: str) -> None:
     password = base64.urlsafe_b64encode(os.urandom(18)).decode("ascii")
     pem = work / "distribution.pem"
     p12 = work / "distribution.p12"
@@ -348,45 +491,8 @@ def install_identity(work: Path) -> None:
         )
     if exported.returncode != 0:
         fail("Could not package the distribution identity for the macOS keychain.")
-    keychain = work / "ci.keychain-db"
-    run_secret(["security", "create-keychain", "-p", password, str(keychain)], password)
-    run_secret(["security", "set-keychain-settings", "-lut", "21600", str(keychain)], password)
-    run_secret(["security", "unlock-keychain", "-p", password, str(keychain)], password)
-    listed = subprocess.run(["security", "list-keychains", "-d", "user"], capture_output=True, text=True, check=False)
-    if listed.returncode != 0:
-        fail("Could not read the login keychains.")
-    existing = [part.strip().strip('"') for part in listed.stdout.splitlines() if part.strip()]
-    run_secret(["security", "list-keychains", "-d", "user", "-s", str(keychain), *existing], password)
-    run_secret(["security", "default-keychain", "-s", str(keychain)], password)
-    run_secret(
-        [
-            "security",
-            "import",
-            str(p12),
-            "-k",
-            str(keychain),
-            "-P",
-            password,
-            "-T",
-            "/usr/bin/codesign",
-            "-T",
-            "/usr/bin/security",
-        ],
-        password,
-    )
-    run_secret(
-        ["security", "set-key-partition-list", "-S", "apple-tool:,apple:,codesign:", "-s", "-k", password, str(keychain)],
-        password,
-    )
-    identities = subprocess.run(
-        ["security", "find-identity", "-v", "-p", "codesigning", str(keychain)],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    print(identities.stdout)
-    if "Apple Distribution" not in identities.stdout:
-        fail("The distribution certificate was created but is not in the keychain as Apple Distribution.")
+    store_encrypted_identity(work, p12, password, certificate_id, api_key_path)
+    import_p12(work, p12, password)
     p12.unlink(missing_ok=True)
     (work / "distribution.key").unlink(missing_ok=True)
 
@@ -461,7 +567,7 @@ def main() -> None:
     work = Path("build/signing")
     work.mkdir(parents=True, exist_ok=True)
     token = make_token(key_id, issuer, key_path)
-    certificate_id = ""
+    certificate_id = load_cached_identity(token, work, key_path)
     for bundle_id, name, capabilities in BUNDLES:
         resource_id = ensure_bundle(token, bundle_id, name)
         present = capability_types(token, resource_id)
@@ -469,7 +575,7 @@ def main() -> None:
             ensure_capability(token, resource_id, capability, present)
         if not certificate_id:
             certificate_id = ensure_distribution_cert(token, work)
-            install_identity(work)
+            install_identity(work, certificate_id, key_path)
         ensure_profile(token, resource_id, bundle_id, certificate_id, work)
     print("App Store signing assets are ready. No devices were registered.")
 
