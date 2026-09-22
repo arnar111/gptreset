@@ -188,7 +188,8 @@ struct BehaviorTests {
             state: PersistedState(installID: state.installID),
             status: status(latest: state.events[0], scheduled: nil),
             history: [state.events[0], historical],
-            timeZone: utc
+            timeZone: utc,
+            now: now
         )
         state = baseline.state
         #expect(baseline.notifications.isEmpty)
@@ -199,7 +200,8 @@ struct BehaviorTests {
             state: state,
             status: status(latest: state.events[0], scheduled: nil),
             history: state.events + [historical],
-            timeZone: utc
+            timeZone: utc,
+            now: now
         )
         #expect(BankedInventory.availableCount(replay.state.bankedRecords) == 2)
 
@@ -241,7 +243,8 @@ struct BehaviorTests {
             state: PersistedState(installID: "install-test"),
             status: status(latest: full, scheduled: nil),
             history: nil,
-            timeZone: utc
+            timeZone: utc,
+            now: now
         )
         #expect(partial.state.baselineEstablished == false)
         #expect(partial.notifications.isEmpty)
@@ -250,7 +253,8 @@ struct BehaviorTests {
             state: partial.state,
             status: nil,
             history: [full, olderBanked],
-            timeZone: utc
+            timeZone: utc,
+            now: now
         )
         #expect(complete.state.baselineEstablished)
         #expect(complete.notifications.isEmpty)
@@ -391,6 +395,212 @@ struct BehaviorTests {
         #expect(event?.kind == .combined)
         #expect(event?.isConfirmedFullReset == true)
         #expect(event?.addsBankedReset == true)
+    }
+
+    @Test func freshInstallCreditsCurrentBankedLatestAndWidgetShowsIt() {
+        let observed = date("2026-09-22T21:23:37Z")
+        let banked = makeEvent(
+            id: "2102463847714247142",
+            kind: .banked,
+            at: "2026-09-22T18:23:37Z",
+            text: "Banked reset."
+        )
+        let full = makeEvent(id: "full-sep12", kind: .full, at: "2026-09-12T08:09:17Z", text: "Full reset.")
+        let ancient = makeEvent(id: "bank-ancient", kind: .banked, at: "2026-09-05T00:39:25Z")
+        let scheduled = makeEvent(
+            id: "sched-live",
+            kind: .full,
+            at: "2026-09-22T04:31:32Z",
+            text: "Reset on Wednesday.",
+            lifecycle: .scheduled,
+            scheduledFor: date("2026-09-23T06:59:00Z")
+        )
+
+        let partial = StateReducer.merge(
+            state: PersistedState(installID: "install-test"),
+            status: status(latest: banked, scheduled: scheduled),
+            history: nil,
+            timeZone: utc,
+            now: observed
+        )
+        #expect(partial.state.baselineEstablished == false)
+        #expect(partial.notifications.isEmpty)
+        #expect(BankedInventory.availableCount(partial.state.bankedRecords) == 1)
+
+        let result = StateReducer.merge(
+            state: partial.state,
+            status: status(latest: banked, scheduled: scheduled),
+            history: [banked, full, ancient],
+            timeZone: utc,
+            now: observed
+        )
+        #expect(result.state.baselineEstablished)
+        #expect(result.notifications.isEmpty)
+        #expect(result.widgetsNeedReload)
+        #expect(BankedInventory.availableCount(result.state.bankedRecords) == 1)
+        #expect(result.state.bankedRecords.first { $0.eventID == banked.id }?.origin == .upstreamCredited)
+        #expect(result.state.bankedRecords.first { $0.eventID == ancient.id }?.origin == .upstreamBaseline)
+        #expect(result.state.bankedRecords.filter { $0.eventID == banked.id }.count == 1)
+        #expect(DashboardDerivation.isCelebrating(result.state, now: observed) == false)
+
+        let content = WidgetContentBuilder.make(state: result.state, now: observed)
+        #expect(content.mode == .bankedRecent)
+        #expect(content.headline == "BANKED")
+        #expect(content.compactValue == "+1")
+        #expect(content.caption == "+1")
+        #expect(content.ago == "3h ago")
+        #expect(content.fullAgeCompact == "10d")
+        #expect(content.fullAgeDetailed == "10d 13h")
+        #expect(content.scheduledPhrase == "Within ~10h")
+        #expect(content.bankedCount == 1)
+        #expect(content.accessibilityLabel.contains("Last full reset"))
+        #expect(content.accessibilityLabel.contains("Next reset"))
+
+        let replay = StateReducer.merge(
+            state: result.state,
+            status: status(latest: banked, scheduled: scheduled),
+            history: result.state.events,
+            timeZone: utc,
+            now: observed
+        )
+        #expect(BankedInventory.availableCount(replay.state.bankedRecords) == 1)
+        #expect(replay.state.bankedRecords.filter { $0.eventID == banked.id }.count == 1)
+        #expect(replay.notifications.isEmpty)
+    }
+
+    @Test func firstSyncCreditsBankedInsideFortyEightHoursAndNotOlder() {
+        let inside = makeEvent(id: "bank-inside", kind: .banked, at: "2026-09-20T16:00:00Z")
+        let alsoRecent = makeEvent(id: "bank-also", kind: .banked, at: "2026-09-21T16:00:00Z")
+        let outside = makeEvent(id: "bank-outside", kind: .banked, at: "2026-09-20T15:59:59Z")
+        let full = makeEvent(id: "full-newer", kind: .full, at: "2026-09-22T08:00:00Z")
+        let result = StateReducer.merge(
+            state: PersistedState(installID: "install-test"),
+            status: status(latest: full, scheduled: nil),
+            history: [full, inside, alsoRecent, outside],
+            timeZone: utc,
+            now: now
+        )
+        #expect(result.notifications.isEmpty)
+        #expect(BankedInventory.availableCount(result.state.bankedRecords) == 2)
+        #expect(result.state.bankedRecords.first { $0.eventID == inside.id }?.origin == .upstreamCredited)
+        #expect(result.state.bankedRecords.first { $0.eventID == alsoRecent.id }?.origin == .upstreamCredited)
+        #expect(result.state.bankedRecords.first { $0.eventID == outside.id }?.origin == .upstreamBaseline)
+        #expect(WidgetContentBuilder.make(state: result.state, now: now).mode == .tracking)
+    }
+
+    @Test func firstSyncCreditsLatestBankedWhenItIsOlderThanFortyEightHours() {
+        let latest = makeEvent(id: "bank-stale-latest", kind: .banked, at: "2026-09-10T00:00:00Z", text: "Still the latest.")
+        let ancient = makeEvent(id: "bank-ancient", kind: .banked, at: "2026-09-01T00:00:00Z")
+        let full = makeEvent(id: "full-older", kind: .full, at: "2026-09-02T00:00:00Z")
+        let partial = StateReducer.merge(
+            state: PersistedState(installID: "install-test"),
+            status: status(latest: latest, scheduled: nil),
+            history: nil,
+            timeZone: utc,
+            now: now
+        )
+        #expect(partial.state.baselineEstablished == false)
+        #expect(BankedInventory.availableCount(partial.state.bankedRecords) == 1)
+        #expect(partial.state.bankedRecords.first { $0.eventID == latest.id }?.origin == .upstreamCredited)
+
+        let complete = StateReducer.merge(
+            state: partial.state,
+            status: nil,
+            history: [latest, ancient, full],
+            timeZone: utc,
+            now: now
+        )
+        #expect(complete.state.baselineEstablished)
+        #expect(complete.notifications.isEmpty)
+        #expect(BankedInventory.availableCount(complete.state.bankedRecords) == 1)
+        #expect(complete.state.bankedRecords.first { $0.eventID == latest.id }?.origin == .upstreamCredited)
+        #expect(complete.state.bankedRecords.first { $0.eventID == ancient.id }?.origin == .upstreamBaseline)
+        #expect(complete.state.bankedRecords.first { $0.eventID == ancient.id }?.countsAsAvailable == false)
+    }
+
+    @Test func fullCelebrationOutranksANewerBankedEvent() {
+        var state = trackingState(fullAt: "2026-09-22T12:00:00Z")
+        let banked = makeEvent(id: "bank-newer", kind: .banked, at: "2026-09-22T15:00:00Z", text: "Added after the full reset.")
+        state.events.insert(banked, at: 0)
+        #expect(DashboardDerivation.isCelebrating(state, now: now))
+        #expect(DashboardDerivation.bankedRecentEvent(in: state, now: now) == nil)
+        let content = WidgetContentBuilder.make(state: state, now: now)
+        #expect(content.mode == .celebration)
+        #expect(content.headline == "RESET!")
+        #expect(content.fullAgeCompact == nil)
+    }
+
+    @Test func combinedResetCelebratesAsFullThenBecomesBankedRecent() {
+        var state = trackingState(fullAt: "2026-09-01T00:00:00Z")
+        let combined = makeEvent(id: "both-recent", kind: .combined, at: "2026-09-22T14:00:00Z", text: "Reset, and a banked credit.")
+        state.events.insert(combined, at: 0)
+        #expect(DashboardDerivation.latestFull(in: state)?.id == combined.id)
+        #expect(DashboardDerivation.isCelebrating(state, now: now))
+        #expect(WidgetContentBuilder.make(state: state, now: now).mode == .celebration)
+
+        let later = date("2026-09-22T23:00:00Z")
+        #expect(DashboardDerivation.isCelebrating(state, now: later) == false)
+        let content = WidgetContentBuilder.make(state: state, now: later)
+        #expect(content.mode == .bankedRecent)
+        #expect(content.headline == "BANKED")
+        #expect(content.ago == "9h ago")
+        #expect(content.fullAgeDetailed == "9h")
+        #expect(DashboardDerivation.bankedRecentEvent(in: state, now: later)?.id == combined.id)
+    }
+
+    @Test func nextSyncCreditsARecentRowThatWasStoredAsBaseline() {
+        var state = trackingState()
+        let banked = makeEvent(id: "bank-recent", kind: .banked, at: "2026-09-22T13:00:00Z", text: "One banked reset.")
+        state.events.insert(banked, at: 0)
+        state.bankedRecords.append(
+            BankedResetRecord(
+                eventID: banked.id,
+                receivedAt: banked.announcedAt,
+                usedAt: nil,
+                origin: .upstreamBaseline
+            )
+        )
+        state.notifiedKeys.append(banked.dedupeKey)
+        #expect(BankedInventory.availableCount(state.bankedRecords) == 0)
+
+        let result = StateReducer.merge(
+            state: state,
+            status: status(latest: banked, scheduled: nil),
+            history: state.events,
+            timeZone: utc,
+            now: now
+        )
+        #expect(BankedInventory.availableCount(result.state.bankedRecords) == 1)
+        #expect(result.state.bankedRecords.first { $0.eventID == banked.id }?.origin == .upstreamCredited)
+        #expect(result.state.bankedRecords.filter { $0.eventID == banked.id }.count == 1)
+        #expect(result.notifications.isEmpty)
+        #expect(result.widgetsNeedReload)
+        #expect(WidgetContentBuilder.make(state: result.state, now: now).mode == .bankedRecent)
+    }
+
+    @Test func nextSyncLeavesAncientBaselineRowsUncounted() {
+        var state = trackingState()
+        let ancient = makeEvent(id: "bank-ancient", kind: .banked, at: "2026-09-01T00:00:00Z")
+        state.events.append(ancient)
+        state.bankedRecords.append(
+            BankedResetRecord(
+                eventID: ancient.id,
+                receivedAt: ancient.announcedAt,
+                usedAt: nil,
+                origin: .upstreamBaseline
+            )
+        )
+        state.notifiedKeys.append(ancient.dedupeKey)
+        let result = StateReducer.merge(
+            state: state,
+            status: status(latest: state.events[0], scheduled: nil),
+            history: state.events,
+            timeZone: utc,
+            now: now
+        )
+        #expect(BankedInventory.availableCount(result.state.bankedRecords) == 0)
+        #expect(result.state.bankedRecords.first { $0.eventID == ancient.id }?.origin == .upstreamBaseline)
+        #expect(result.notifications.isEmpty)
     }
 
     private func trackingState(fullAt: String = "2026-09-12T08:09:17Z") -> PersistedState {

@@ -69,7 +69,10 @@ final class AppModel {
         state = outcome.state
         lastRefreshAt = Date()
         SharedStateStore.save(state)
-        if outcome.widgetsNeedReload {
+        // A successful refresh always rebuilds timelines. A 304 still replaces a
+        // widget that is stuck on the last full reset after a banked announcement
+        // was already cached. A failed refresh reloads only when merged data changed.
+        if outcome.widgetsNeedReload || !outcome.state.lastRefreshFailed {
             WidgetCenter.shared.reloadAllTimelines()
         }
         await presenter.deliver(outcome.notifications, pushActive: remotePushIsActive)

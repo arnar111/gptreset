@@ -97,7 +97,7 @@ struct CodexStatusWidget: Widget {
             StatusWidgetView(entry: entry)
         }
         .configurationDisplayName("Codex Reset")
-        .description("Time since the last full reset, banked resets you have left, and whether another reset is scheduled.")
+        .description("Time since the last full reset, a banked reset when that is the newest announcement, and how many banked resets you have left.")
         .supportedFamilies([
             .systemSmall,
             .systemMedium,
@@ -165,6 +165,12 @@ struct StatusWidgetView: View {
                 .font(.subheadline)
                 .foregroundStyle(HighEnd.mist)
                 .lineLimit(1)
+            if content.mode == .bankedRecent, let fullAge = content.fullAgeCompact {
+                Text("\(fullAge) since full")
+                    .font(.caption2)
+                    .foregroundStyle(HighEnd.mist)
+                    .lineLimit(1)
+            }
             Spacer(minLength: 0)
             Text("\(content.bankedCount) banked")
                 .font(.caption.weight(.medium))
@@ -180,6 +186,8 @@ struct StatusWidgetView: View {
             return content.ago
         case .tracking:
             return "since full"
+        case .bankedRecent:
+            return content.ago
         default:
             return content.caption
         }
@@ -203,6 +211,22 @@ struct StatusWidgetView: View {
                 Text("Usage limits cleared")
                     .font(.subheadline)
                     .foregroundStyle(HighEnd.mist)
+            } else if content.mode == .bankedRecent {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("BANKED")
+                        .font((prominent ? Font.title : Font.title3).weight(.semibold))
+                        .foregroundStyle(.white)
+                        .widgetAccentable()
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    Text(content.ago)
+                        .font(.subheadline)
+                        .foregroundStyle(HighEnd.mist)
+                        .lineLimit(1)
+                }
+                Text("+1")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(HighEnd.coralSoft)
             } else {
                 Text(content.headline)
                     .font((prominent ? Font.largeTitle : Font.title2).weight(.semibold))
@@ -245,6 +269,8 @@ struct StatusWidgetView: View {
             return content.caption
         case .celebration:
             return "Usage limits cleared"
+        case .bankedRecent:
+            return content.ago
         }
     }
 
@@ -254,6 +280,8 @@ struct StatusWidgetView: View {
             return "PRIOR FULL"
         case .scheduled:
             return "EXPECTED"
+        case .bankedRecent:
+            return "SINCE FULL"
         default:
             return "LAST FULL"
         }
@@ -303,6 +331,13 @@ struct StatusWidgetView: View {
             text = content.compactValue
         case .tracking:
             text = "\(content.compactValue) since reset"
+        case .bankedRecent:
+            let age = content.ago.replacingOccurrences(of: " ago", with: "")
+            if let fullAge = content.fullAgeCompact {
+                text = "BANKED \(age) · \(fullAge) full"
+            } else {
+                text = "BANKED \(age)"
+            }
         case .empty:
             text = "Codex"
         }
@@ -328,7 +363,7 @@ struct StatusWidgetView: View {
                 .font(.headline)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-            Text("\(content.bankedCount) banked")
+            Text(rectangularSubtitle(content))
                 .font(.caption)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -341,9 +376,18 @@ struct StatusWidgetView: View {
             return "RESET! · \(content.ago)"
         case .tracking:
             return "\(content.headline) since full"
+        case .bankedRecent:
+            return "BANKED · \(content.ago)"
         default:
             return "\(content.compactValue) \(content.caption)"
         }
+    }
+
+    private func rectangularSubtitle(_ content: WidgetContent) -> String {
+        if content.mode == .bankedRecent, let fullAge = content.fullAgeCompact {
+            return "\(content.bankedCount) banked · \(fullAge) full"
+        }
+        return "\(content.bankedCount) banked"
     }
 }
 

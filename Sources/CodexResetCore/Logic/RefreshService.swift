@@ -87,7 +87,8 @@ public enum RefreshService {
             state: state,
             status: statusNotModified ? nil : status?.value,
             history: historyNotModified ? nil : history?.value,
-            timeZone: timeZone
+            timeZone: timeZone,
+            now: now
         )
         var next = reduced.state
         next.lastUpdated = now

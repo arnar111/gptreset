@@ -59,6 +59,9 @@ struct SettingsView: View {
                 Text("Codex Reset Tracker follows public reset announcements. It does not sign in to ChatGPT, estimate remaining usage, or track you.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                Text("When the newest announcement is a banked reset, Status and the widget lead with that reset and still show how long it has been since the last full reset. A banked reset from the last 48 hours is added on the first sync, including the current one if you install after it was announced. Older history is remembered and not counted.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 LabeledContent("Version", value: appVersion)
             }
         }

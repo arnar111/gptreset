@@ -4,11 +4,14 @@ public enum StateReducer {
     /// Merges a status payload and/or a history page into local state.
     /// Pass nil for a payload that came back `304 Not Modified`.
     /// The first successful merge establishes a baseline and does not notify for rows that already existed.
+    /// Banked rows already on the server are not credited, except announcements from
+    /// the last 48 hours and the current latest reset when it adds a banked credit.
     public static func merge(
         state: PersistedState,
         status: NormalizedStatus?,
         history: [ResetEvent]?,
-        timeZone: TimeZone
+        timeZone: TimeZone,
+        now: Date = Date()
     ) -> ReduceResult {
         var next = state
         let before = signature(of: state)
@@ -55,7 +58,14 @@ public enum StateReducer {
 
         let confirmed = next.events.filter { $0.lifecycle == .confirmed }
         let establishing = !state.baselineEstablished
-        BankedInventory.ingest(events: confirmed, into: &next.bankedRecords, baseline: establishing)
+        let latestBankedResetID = status?.latestReset.flatMap { $0.addsBankedReset ? $0.id : nil }
+        BankedInventory.ingest(
+            events: confirmed,
+            into: &next.bankedRecords,
+            baseline: establishing,
+            now: now,
+            latestBankedResetID: latestBankedResetID
+        )
 
         var notifications: [PlannedNotification] = []
         let candidateEvents = confirmed + (next.scheduled.map { [$0] } ?? [])

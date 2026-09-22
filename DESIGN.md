@@ -43,6 +43,14 @@ Default **6 hours** after a confirmed full reset (`celebrationHours` in Settings
 
 **Medium, tracking** uses the same rows. The headline is the elapsed time, the caption is `since full reset`, and the stamp row is `LAST FULL`. Scheduled-only uses `EXPECTED` for the announced time.
 
+**Banked recent** is used when the newest confirmed announcement added a banked credit and the full-reset celebration window is not active. Full celebration is unchanged: it still applies only to a confirmed full reset, including combined.
+
+- Small: `BANKED`, time since that event (`3h ago`), `10d since full`, banked count
+- Medium and large: `BANKED` with the time on the same line, `+1`, then `BANKED` / `NEXT` / `SINCE FULL` (`10d 7h`)
+- Lock Screen: `+1` in the circular accessory, `BANKED 3h · 10d full` inline
+
+A scheduled reset, when one exists, stays on the `NEXT` row. It does not replace the banked headline.
+
 **Large** repeats the medium card with larger type. Lock Screen accessories stay compact and monochrome (`RESET`, `10d`, banked count). They do not take the charcoal fill.
 
 The gallery placeholder is the celebration layout so the add-widget sheet shows this direction.

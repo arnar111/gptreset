@@ -9,6 +9,7 @@ Data from [Codex Resets](https://codex-resets.com/).
 ## What you see
 
 - The latest **confirmed full reset**, and how long ago it happened
+- When the newest announcement is a **banked** reset (and a full reset is not in its celebration window), that banked reset leads: **BANKED**, **+1**, and how long ago, with the full-reset age still shown beside it
 - How many **banked resets** this iPhone still has available
 - Whether another reset is **scheduled** (a schedule is not a completed reset)
 - History of announcements, with a link to the original post when Codex Resets has one
@@ -31,7 +32,7 @@ Times use the iPhone time zone. Settings can switch the display to UTC.
 The public API does not know whether *you* redeemed a banked credit. The count lives on the device:
 
 - `BankedResetRecord` stores `eventID`, `receivedAt`, and optional `usedAt`
-- Announcements that already existed on the first successful history sync are remembered and **not** added to the available count
+- Announcements that already existed on the first successful history sync are remembered and **not** added to the available count, except a banked reset from the last 48 hours and the current latest reset when it is banked or combined. Those are credited once, by event id, and still do not send a first-sync alert. A recent row that was saved earlier without a credit is counted on the next refresh
 - **Mark one as used** consumes the oldest available credit and never goes below zero
 - **Correct banked count** adds or retires manual rows whose ids cannot collide with upstream ids, so a later API event still adds one
 - A full reset does not clear the bank
@@ -48,7 +49,9 @@ Home Screen widgets sit on deep charcoal glass with hairline row separators and 
 
 - Small celebration: `RESET!`, how long ago, banked count
 - Small tracking: `10d 7h`, “since full”, banked count
+- Small banked: `BANKED`, `3h ago`, `10d since full`, banked count
 - Medium celebration: `🔥 RESET!`, time ago, “Usage limits cleared”, then `BANKED` / `NEXT` / `PRIOR FULL`, plus a quiet **Used banked reset** chip
+- Medium banked: `BANKED` and the time, `+1`, then `BANKED` / `NEXT` / `SINCE FULL`
 - Lock Screen accessories stay short and monochrome
 
 Alerts keep the four titles (full, banked, double, scheduled). Long-pressing one opens a charcoal card; a full reset uses a coral title and a restrained glow. The collapsed banner is the system notification, so that color is on the expanded card.
@@ -127,7 +130,7 @@ node --test backend/test/*.test.js
 make test
 ```
 
-On 22 Sep 2026, `swift test` passed 22 tests (Swift 6.2 on Linux) and `node --test` passed 10. That covers the product cases: full, banked, duplicate fetches, combined, scheduled vs completed, mark-used, restart, offline cache, and malformed fields. This environment cannot run Xcode, so the iOS target has not been compiled here.
+On 22 Sep 2026, `swift test` passed 29 tests (Swift 6.2 on Linux) and `node --test` passed 10. That covers the product cases: full, banked, a recent banked reset on first sync, duplicate fetches, combined, scheduled vs completed, mark-used, restart, offline cache, and malformed fields. This environment cannot run Xcode, so the iOS target has not been compiled here.
 
 ## Run it on a Mac
 
