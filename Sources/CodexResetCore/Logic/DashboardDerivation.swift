@@ -41,6 +41,15 @@ public enum DashboardDerivation {
         return age >= 0 && age <= window
     }
 
+    /// Newest confirmed announcement when it added a banked credit and the
+    /// full-reset celebration window is closed. Combined uses this mode only
+    /// after that window, so celebration stays reserved for a confirmed full reset.
+    public static func bankedRecentEvent(in state: PersistedState, now: Date) -> ResetEvent? {
+        guard !isCelebrating(state, now: now) else { return nil }
+        guard let latest = latestConfirmed(in: state), latest.addsBankedReset else { return nil }
+        return latest
+    }
+
     public static func recent(_ state: PersistedState, limit: Int = 4) -> [ResetEvent] {
         Array(history(state, filter: .all).prefix(limit))
     }

@@ -53,48 +53,97 @@ struct DashboardView: View {
         }
     }
 
-    @ViewBuilder
     private var hero: some View {
-        let full = DashboardDerivation.latestFull(in: model.state)
-        let celebrating = DashboardDerivation.isCelebrating(model.state, now: Date())
         TrackerCard {
             TimelineView(.periodic(from: .now, by: 30)) { context in
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 10) {
-                        KindGlyph(systemName: "flame.fill", tint: Palette.ember(scheme))
-                        Text(celebrating ? "Full reset" : "Latest full reset")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Palette.ember(scheme))
-                    }
-                    if let full {
-                        let elapsed = RelativeTime.elapsed(from: full.announcedAt, now: context.date)
-                        if celebrating {
-                            Text("100% reset")
-                                .font(.title2.weight(.semibold))
-                        }
-                        Text(elapsed.phrase)
-                            .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                            .minimumScaleFactor(0.7)
-                            .lineLimit(2)
-                        Text(RelativeTime.stamp(full.announcedAt, display: model.state.timeDisplay))
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                        Text(full.text)
-                            .font(.callout)
-                            .foregroundStyle(.primary)
-                            .lineLimit(3)
-                            .padding(.top, 4)
-                    } else {
-                        Text("No full reset yet")
-                            .font(.title2.weight(.semibold))
-                        Text("Pull to refresh once Codex Resets has published one.")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                    }
+                if let recent = DashboardDerivation.bankedRecentEvent(in: model.state, now: context.date) {
+                    bankedRecentHero(recent, now: context.date)
+                } else {
+                    fullHero(now: context.date)
                 }
-                .accessibilityElement(children: .combine)
             }
         }
+    }
+
+    @ViewBuilder
+    private func bankedRecentHero(_ event: ResetEvent, now: Date) -> some View {
+        let elapsed = RelativeTime.elapsed(from: event.announcedAt, now: now)
+        let full = DashboardDerivation.latestFull(in: model.state)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                KindGlyph(systemName: "building.columns.fill", tint: Palette.teal(scheme))
+                Text(event.kind == .combined ? "Full + banked" : "Banked reset")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Palette.teal(scheme))
+            }
+            Text("+1")
+                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
+            Text(elapsed.phrase)
+                .font(.title2.weight(.semibold))
+            Text(RelativeTime.stamp(event.announcedAt, display: model.state.timeDisplay))
+                .font(.body)
+                .foregroundStyle(.secondary)
+            if !event.text.isEmpty {
+                Text(event.text)
+                    .font(.callout)
+                    .foregroundStyle(.primary)
+                    .lineLimit(3)
+                    .padding(.top, 4)
+            }
+            if let full, full.id != event.id {
+                let fullElapsed = RelativeTime.elapsed(from: full.announcedAt, now: now)
+                Text("Full reset \(fullElapsed.phrase)")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Palette.ember(scheme))
+                    .padding(.top, 6)
+                Text(RelativeTime.stamp(full.announcedAt, display: model.state.timeDisplay))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private func fullHero(now: Date) -> some View {
+        let full = DashboardDerivation.latestFull(in: model.state)
+        let celebrating = DashboardDerivation.isCelebrating(model.state, now: now)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                KindGlyph(systemName: "flame.fill", tint: Palette.ember(scheme))
+                Text(celebrating ? "Full reset" : "Latest full reset")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Palette.ember(scheme))
+            }
+            if let full {
+                let elapsed = RelativeTime.elapsed(from: full.announcedAt, now: now)
+                if celebrating {
+                    Text("100% reset")
+                        .font(.title2.weight(.semibold))
+                }
+                Text(elapsed.phrase)
+                    .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(2)
+                Text(RelativeTime.stamp(full.announcedAt, display: model.state.timeDisplay))
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                Text(full.text)
+                    .font(.callout)
+                    .foregroundStyle(.primary)
+                    .lineLimit(3)
+                    .padding(.top, 4)
+            } else {
+                Text("No full reset yet")
+                    .font(.title2.weight(.semibold))
+                Text("Pull to refresh once Codex Resets has published one.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 
     private var bankedCard: some View {

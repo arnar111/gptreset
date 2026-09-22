@@ -6,6 +6,8 @@ public struct WidgetContent: Equatable {
         case celebration
         case tracking
         case scheduled
+        /// Newest confirmed event added a banked credit, and full celebration is not active.
+        case bankedRecent
     }
 
     public var mode: Mode
@@ -20,6 +22,13 @@ public struct WidgetContent: Equatable {
     public var bankedCount: Int
     public var scheduledCompact: String?
     public var scheduledPhrase: String?
+    /// Largest unit of the last full reset, such as "10d", when the hero is banked.
+    public var fullAgeCompact: String?
+    /// Up to two units of the last full reset, such as "10d 7h", when the hero is banked.
+    public var fullAgeDetailed: String?
+    /// Set when the newest confirmed announcement added a banked credit, including during full celebration.
+    /// Example: "+1 · 3h ago". The medium widget shows this on the banked half.
+    public var bankedCue: String?
     public var accessibilityLabel: String
 
     public init(
@@ -33,6 +42,9 @@ public struct WidgetContent: Equatable {
         bankedCount: Int,
         scheduledCompact: String?,
         scheduledPhrase: String?,
+        fullAgeCompact: String? = nil,
+        fullAgeDetailed: String? = nil,
+        bankedCue: String? = nil,
         accessibilityLabel: String
     ) {
         self.mode = mode
@@ -45,6 +57,9 @@ public struct WidgetContent: Equatable {
         self.bankedCount = bankedCount
         self.scheduledCompact = scheduledCompact
         self.scheduledPhrase = scheduledPhrase
+        self.fullAgeCompact = fullAgeCompact
+        self.fullAgeDetailed = fullAgeDetailed
+        self.bankedCue = bankedCue
         self.accessibilityLabel = accessibilityLabel
     }
 }
@@ -56,6 +71,7 @@ public enum WidgetContentBuilder {
         let celebrating = DashboardDerivation.isCelebrating(state, now: now)
         let window = state.scheduled?.scheduledFor.map { RelativeTime.scheduledWindow(until: $0, now: now) }
             ?? (state.scheduled == nil ? nil : RelativeTime.scheduledWindow(until: nil, now: now))
+        let bankedCue = bankedAdditionCue(in: state, now: now)
 
         if celebrating, let full {
             let elapsed = RelativeTime.elapsed(from: full.announcedAt, now: now)
@@ -71,7 +87,39 @@ public enum WidgetContentBuilder {
                 bankedCount: banked,
                 scheduledCompact: window?.compact,
                 scheduledPhrase: window?.phrase,
+                bankedCue: bankedCue,
                 accessibilityLabel: "Full reset, \(elapsed.accessible). \(banked) banked \(banked == 1 ? "reset" : "resets") available."
+            )
+        }
+
+        if let bankedEvent = DashboardDerivation.bankedRecentEvent(in: state, now: now) {
+            let elapsed = RelativeTime.elapsed(from: bankedEvent.announcedAt, now: now)
+            let fullElapsed = full.map { RelativeTime.elapsed(from: $0.announcedAt, now: now) }
+            var label = "Banked reset added \(elapsed.accessible). \(banked) banked \(banked == 1 ? "reset" : "resets") available."
+            if let fullElapsed {
+                label += " Last full reset \(fullElapsed.accessible)."
+            }
+            if let window, let scheduled = state.scheduled {
+                label += " Next reset \(window.phrase)."
+                if let when = scheduled.scheduledFor {
+                    label += " By \(RelativeTime.stamp(when, timeZone: state.timeDisplay.timeZone, locale: locale, includeWeekday: true))."
+                }
+            }
+            return WidgetContent(
+                mode: .bankedRecent,
+                symbolName: "building.columns.fill",
+                compactValue: "+1",
+                headline: "BANKED",
+                caption: "+1",
+                ago: elapsed.phrase,
+                stamp: fullElapsed?.detailed ?? "",
+                bankedCount: banked,
+                scheduledCompact: window?.compact,
+                scheduledPhrase: window?.phrase,
+                fullAgeCompact: fullElapsed?.short,
+                fullAgeDetailed: fullElapsed?.detailed,
+                bankedCue: bankedCue,
+                accessibilityLabel: label
             )
         }
 
@@ -96,6 +144,7 @@ public enum WidgetContentBuilder {
                 bankedCount: banked,
                 scheduledCompact: window?.compact,
                 scheduledPhrase: window?.phrase,
+                bankedCue: bankedCue,
                 accessibilityLabel: label
             )
         }
@@ -115,6 +164,7 @@ public enum WidgetContentBuilder {
                 bankedCount: banked,
                 scheduledCompact: window.compact,
                 scheduledPhrase: window.phrase,
+                bankedCue: bankedCue,
                 accessibilityLabel: "Reset scheduled, \(window.phrase). \(banked) banked available."
             )
         }
@@ -130,7 +180,16 @@ public enum WidgetContentBuilder {
             bankedCount: banked,
             scheduledCompact: nil,
             scheduledPhrase: nil,
+            bankedCue: bankedCue,
             accessibilityLabel: "No reset data yet. \(banked) banked available."
         )
+    }
+
+    /// Cue for the medium widget's banked half. Independent of celebration:
+    /// a newer banked credit still shows here while the full half says RESET!.
+    private static func bankedAdditionCue(in state: PersistedState, now: Date) -> String? {
+        guard let latest = DashboardDerivation.latestConfirmed(in: state), latest.addsBankedReset else { return nil }
+        let elapsed = RelativeTime.elapsed(from: latest.announcedAt, now: now)
+        return "+1 · \(elapsed.phrase)"
     }
 }
