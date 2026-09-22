@@ -453,6 +453,7 @@ struct BehaviorTests {
         #expect(content.fullAgeDetailed == "10d 13h")
         #expect(content.scheduledPhrase == "Within ~10h")
         #expect(content.bankedCount == 1)
+        #expect(content.bankedCue == "+1 · 3h ago")
         #expect(content.accessibilityLabel.contains("Last full reset"))
         #expect(content.accessibilityLabel.contains("Next reset"))
 
@@ -485,7 +486,9 @@ struct BehaviorTests {
         #expect(result.state.bankedRecords.first { $0.eventID == inside.id }?.origin == .upstreamCredited)
         #expect(result.state.bankedRecords.first { $0.eventID == alsoRecent.id }?.origin == .upstreamCredited)
         #expect(result.state.bankedRecords.first { $0.eventID == outside.id }?.origin == .upstreamBaseline)
-        #expect(WidgetContentBuilder.make(state: result.state, now: now).mode == .tracking)
+        let tracking = WidgetContentBuilder.make(state: result.state, now: now)
+        #expect(tracking.mode == .tracking)
+        #expect(tracking.bankedCue == nil)
     }
 
     @Test func firstSyncCreditsLatestBankedWhenItIsOlderThanFortyEightHours() {
@@ -528,6 +531,7 @@ struct BehaviorTests {
         #expect(content.mode == .celebration)
         #expect(content.headline == "RESET!")
         #expect(content.fullAgeCompact == nil)
+        #expect(content.bankedCue == "+1 · 1h ago")
     }
 
     @Test func combinedResetCelebratesAsFullThenBecomesBankedRecent() {
@@ -536,7 +540,9 @@ struct BehaviorTests {
         state.events.insert(combined, at: 0)
         #expect(DashboardDerivation.latestFull(in: state)?.id == combined.id)
         #expect(DashboardDerivation.isCelebrating(state, now: now))
-        #expect(WidgetContentBuilder.make(state: state, now: now).mode == .celebration)
+        let celebrating = WidgetContentBuilder.make(state: state, now: now)
+        #expect(celebrating.mode == .celebration)
+        #expect(celebrating.bankedCue == "+1 · 2h ago")
 
         let later = date("2026-09-22T23:00:00Z")
         #expect(DashboardDerivation.isCelebrating(state, now: later) == false)
@@ -545,6 +551,7 @@ struct BehaviorTests {
         #expect(content.headline == "BANKED")
         #expect(content.ago == "9h ago")
         #expect(content.fullAgeDetailed == "9h")
+        #expect(content.bankedCue == "+1 · 9h ago")
         #expect(DashboardDerivation.bankedRecentEvent(in: state, now: later)?.id == combined.id)
     }
 

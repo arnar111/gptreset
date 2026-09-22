@@ -34,24 +34,19 @@ Default **6 hours** after a confirmed full reset (`celebrationHours` in Settings
 - `since full`
 - banked count
 
-**Medium, celebration**
+**Medium (4×2)** is two equal columns with a hairline between them. Neither side is a footer under the other.
 
-- `🔥 RESET!` and the relative time on one line
-- `Usage limits cleared`
-- hairline rows: `BANKED`, `NEXT`, `PRIOR FULL` (stamp of the full reset being celebrated)
-- a capsule chip, **Used banked reset**, which runs the App Intent and does not open the app
+- Left, **FULL**: time since the last full reset (`10d 7h` / `since full`). During the celebration window the value is `RESET!` and the line under it is how long ago.
+- Right, **BANKED**: the available count at the same type size. When the newest announcement added a banked credit, the line under the count is `+1 · 3h ago`, including while the left side is still celebrating a full reset.
+- A scheduled reset is a caption-sized `NEXT` line under both columns. **Used banked reset** sits on that same thin line. If nothing is scheduled and the bank is empty, the line is omitted.
 
-**Medium, tracking** uses the same rows. The headline is the elapsed time, the caption is `since full reset`, and the stamp row is `LAST FULL`. Scheduled-only uses `EXPECTED` for the announced time.
-
-**Banked recent** is used when the newest confirmed announcement added a banked credit and the full-reset celebration window is not active. Full celebration is unchanged: it still applies only to a confirmed full reset, including combined.
+**Banked recent** is used on the small widget, the large widget, and the app when the newest confirmed announcement added a banked credit and the full-reset celebration window is not active. Full celebration is unchanged: it still applies only to a confirmed full reset, including combined.
 
 - Small: `BANKED`, time since that event (`3h ago`), `10d since full`, banked count
-- Medium and large: `BANKED` with the time on the same line, `+1`, then `BANKED` / `NEXT` / `SINCE FULL` (`10d 7h`)
+- Large: `BANKED` with the time on the same line, `+1`, then `BANKED` / `NEXT` / `SINCE FULL` (`10d 7h`), plus the **Used banked reset** chip
 - Lock Screen: `+1` in the circular accessory, `BANKED 3h · 10d full` inline
 
-A scheduled reset, when one exists, stays on the `NEXT` row. It does not replace the banked headline.
-
-**Large** repeats the medium card with larger type. Lock Screen accessories stay compact and monochrome (`RESET`, `10d`, banked count). They do not take the charcoal fill.
+**Large** keeps the stacked card with larger type. Lock Screen accessories stay compact and monochrome (`RESET`, `10d`, banked count). They do not take the charcoal fill.
 
 The gallery placeholder is the celebration layout so the add-widget sheet shows this direction.
 

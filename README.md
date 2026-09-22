@@ -50,8 +50,8 @@ Home Screen widgets sit on deep charcoal glass with hairline row separators and 
 - Small celebration: `RESET!`, how long ago, banked count
 - Small tracking: `10d 7h`, “since full”, banked count
 - Small banked: `BANKED`, `3h ago`, `10d since full`, banked count
-- Medium celebration: `🔥 RESET!`, time ago, “Usage limits cleared”, then `BANKED` / `NEXT` / `PRIOR FULL`, plus a quiet **Used banked reset** chip
-- Medium banked: `BANKED` and the time, `+1`, then `BANKED` / `NEXT` / `SINCE FULL`
+- Medium (4×2): equal **FULL** and **BANKED** columns. Full shows time since the last full reset, or `RESET!` while celebrating. Banked shows the available count and, when the newest announcement added one, `+1 · 3h ago`. `NEXT` is a thin line under both.
+- Large keeps the stacked card: headline, then `BANKED` / `NEXT` / `SINCE FULL`, plus **Used banked reset**
 - Lock Screen accessories stay short and monochrome
 
 Alerts keep the four titles (full, banked, double, scheduled). Long-pressing one opens a charcoal card; a full reset uses a coral title and a restrained glow. The collapsed banner is the system notification, so that color is on the expanded card.

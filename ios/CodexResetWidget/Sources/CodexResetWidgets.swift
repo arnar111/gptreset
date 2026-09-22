@@ -125,7 +125,7 @@ struct StatusWidgetView: View {
             if let content = entry.content {
                 switch family {
                 case .systemMedium:
-                    homeCard(content, prominent: false)
+                    mediumSplit(content)
                 case .systemLarge:
                     homeCard(content, prominent: true)
                 case .accessoryInline:
@@ -191,6 +191,149 @@ struct StatusWidgetView: View {
         default:
             return content.caption
         }
+    }
+
+    /// 4×2. Two equal columns. Scheduled time and the used-credit action sit on a thin line underneath.
+    private func mediumSplit(_ content: WidgetContent) -> some View {
+        VStack(spacing: 6) {
+            HStack(alignment: .top, spacing: 12) {
+                mediumColumn(
+                    eyebrow: "FULL",
+                    primary: fullPrimary(content),
+                    secondary: fullSecondary(content),
+                    primaryColor: content.mode == .celebration ? accent : .white,
+                    secondaryColor: HighEnd.mist
+                )
+                Rectangle()
+                    .fill(HighEnd.hairline)
+                    .frame(width: 0.5)
+                    .padding(.vertical, 2)
+                mediumColumn(
+                    eyebrow: "BANKED",
+                    primary: "\(content.bankedCount)",
+                    secondary: bankedSecondary(content),
+                    primaryColor: bankedPrimaryColor(content),
+                    secondaryColor: content.bankedCue == nil ? HighEnd.mist : bankedPrimaryColor(content)
+                )
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
+            mediumFooter(content)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .accessibilityLabel(content.accessibilityLabel)
+    }
+
+    private func mediumColumn(
+        eyebrow: String,
+        primary: String,
+        secondary: String,
+        primaryColor: Color,
+        secondaryColor: Color
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(eyebrow)
+                .font(.caption2.weight(.semibold))
+                .tracking(0.8)
+                .foregroundStyle(HighEnd.mist)
+                .lineLimit(1)
+            Text(primary)
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(primaryColor)
+                .widgetAccentable()
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
+            Text(secondary)
+                .font(.subheadline)
+                .foregroundStyle(secondaryColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func fullPrimary(_ content: WidgetContent) -> String {
+        switch content.mode {
+        case .celebration:
+            return "RESET!"
+        case .bankedRecent:
+            return content.fullAgeDetailed ?? "—"
+        case .tracking:
+            return content.headline
+        case .scheduled, .empty:
+            return "—"
+        }
+    }
+
+    private func fullSecondary(_ content: WidgetContent) -> String {
+        switch content.mode {
+        case .celebration:
+            return content.ago
+        case .tracking:
+            return "since full"
+        case .bankedRecent:
+            return content.fullAgeDetailed == nil ? "No full yet" : "since full"
+        case .scheduled, .empty:
+            return "No full yet"
+        }
+    }
+
+    private func bankedSecondary(_ content: WidgetContent) -> String {
+        if let cue = content.bankedCue {
+            return cue
+        }
+        return content.bankedCount == 1 ? "reset available" : "resets available"
+    }
+
+    private func bankedPrimaryColor(_ content: WidgetContent) -> Color {
+        if renderingMode == .accented { return .primary }
+        return content.mode == .celebration ? HighEnd.coralSoft : .white
+    }
+
+    @ViewBuilder
+    private func mediumFooter(_ content: WidgetContent) -> some View {
+        let next = content.scheduledPhrase ?? content.scheduledCompact
+        if next != nil || content.bankedCount > 0 {
+            VStack(spacing: 4) {
+                Rectangle()
+                    .fill(HighEnd.hairline)
+                    .frame(height: 0.5)
+                HStack(alignment: .center, spacing: 6) {
+                    if let next {
+                        Text("NEXT")
+                            .font(.caption2.weight(.semibold))
+                            .tracking(0.7)
+                            .foregroundStyle(HighEnd.mist)
+                        Text(next)
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.88))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.65)
+                    }
+                    Spacer(minLength: 4)
+                    if content.bankedCount > 0 {
+                        compactUsedChip
+                    }
+                }
+            }
+        }
+    }
+
+    private var compactUsedChip: some View {
+        Button(intent: MarkBankedResetUsedIntent()) {
+            Text("Used banked reset")
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(HighEnd.coralSoft)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .background(HighEnd.coral.opacity(0.14), in: Capsule())
+                .overlay(Capsule().stroke(HighEnd.hairline, lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Used banked reset")
     }
 
     private func homeCard(_ content: WidgetContent, prominent: Bool) -> some View {
