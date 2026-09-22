@@ -16,7 +16,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        UNUserNotificationCenter.current().delegate = self
+        let center = UNUserNotificationCenter.current()
+        center.delegate = self
+        center.setNotificationCategories([
+            UNNotificationCategory(
+                identifier: ResetTrackerDefaults.notificationCategory,
+                actions: [],
+                intentIdentifiers: [],
+                options: []
+            ),
+        ])
         return true
     }
 
@@ -31,9 +40,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         CodexLog.debug("APNs registration failed: \(error.localizedDescription)")
     }
 
-    func application(
+    /// Nonisolated so the non-Sendable payload is not sent into a main-actor witness.
+    /// The dictionary is unused; the refresh runs on the main actor.
+    nonisolated func application(
         _ application: UIApplication,
-        didReceiveRemoteNotification userInfo: [AnyHashable: Any]
+        didReceiveRemoteNotification _: [AnyHashable: Any]
     ) async -> UIBackgroundFetchResult {
         await MainActor.run {
             PushBridge.shared.onRemote?()

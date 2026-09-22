@@ -348,8 +348,13 @@ struct BehaviorTests {
         let content = WidgetContentBuilder.make(state: state, now: inside)
         #expect(content.mode == .celebration)
         #expect(content.compactValue == "RESET")
+        #expect(content.headline == "RESET!")
         #expect(content.caption == "100% reset")
         #expect(content.ago == "6h ago")
+        let tracking = WidgetContentBuilder.make(state: trackingState(), now: now)
+        #expect(tracking.mode == .tracking)
+        #expect(tracking.compactValue == "10d")
+        #expect(tracking.headline == "10d 7h")
 
         let boundary = date("2026-09-22T16:00:00Z")
         state = trackingState(fullAt: "2026-09-22T10:00:00Z")

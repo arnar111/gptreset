@@ -1,0 +1,217 @@
+name: iOS TestFlight
+
+# Pull requests compile the app, widget, and notification extension for the
+# simulator. They do not sign or upload.
+# Pushes to main, and manual runs, archive a Release build and upload it to
+# TestFlight when the App Store Connect secrets exist.
+# Signing is automatic: Xcode creates the distribution certificate and
+# profiles with the API key. No Mac and no fastlane match.
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-testflight-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: Build app and widgets
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 16 or newer
+        run: bash scripts/ci/select-xcode.sh
+
+      - name: Compile for iOS Simulator
+        env:
+          DERIVED: ${{ runner.temp }}/DerivedData
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ios/CodexResetTracker.xcodeproj \
+            -scheme CodexResetTracker \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$DERIVED" \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+          missing=0
+          for name in CodexResetTracker.app CodexResetWidget.appex CodexResetNotification.appex; do
+            found=$(find "$DERIVED" -name "$name" -print | head -1 || true)
+            if [ -z "$found" ]; then
+              echo "::error::Build did not produce $name"
+              missing=1
+            else
+              echo "Built $found"
+            fi
+          done
+          exit "$missing"
+
+  testflight:
+    name: Upload to TestFlight
+    needs: build
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    runs-on: macos-latest
+    timeout-minutes: 50
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      # Unique across re-runs of the same workflow run.
+      BUILD_NUMBER: ${{ github.run_number }}.${{ github.run_attempt }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 16 or newer
+        run: bash scripts/ci/select-xcode.sh
+
+      - name: Check signing secrets
+        id: gate
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_PRIVATE_KEY APPLE_TEAM_ID; do
+            if [ -z "${!name}" ]; then
+              echo "Missing GitHub secret: $name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+              echo "::error::Add the signing secrets, then run this workflow again. See docs/IOS_CI_SETUP.md"
+              exit 1
+            fi
+            echo "::warning::Signing secrets are not set, so this push was not uploaded. See docs/IOS_CI_SETUP.md"
+            echo "upload=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "upload=true" >> "$GITHUB_OUTPUT"
+
+      - name: Install App Store Connect API key
+        if: steps.gate.outputs.upload == 'true'
+        run: |
+          set -euo pipefail
+          dir="$HOME/.appstoreconnect/private_keys"
+          mkdir -p "$dir"
+          key="$dir/AuthKey_${ASC_KEY_ID}.p8"
+          # Accept the .p8 text, or a single-line base64 copy of that file.
+          if printf '%s' "$ASC_PRIVATE_KEY" | grep -q "BEGIN PRIVATE KEY"; then
+            printf '%s\n' "$ASC_PRIVATE_KEY" | tr -d '\r' > "$key"
+          else
+            printf '%s' "$ASC_PRIVATE_KEY" | tr -d '[:space:]' | base64 -D > "$key"
+          fi
+          chmod 600 "$key"
+          if ! grep -q "BEGIN PRIVATE KEY" "$key"; then
+            echo "::error::ASC_PRIVATE_KEY is not an App Store Connect API private key (.p8)."
+            rm -f "$key"
+            exit 1
+          fi
+          echo "AUTH_KEY_PATH=$key" >> "$GITHUB_ENV"
+
+      - name: Archive Release
+        if: steps.gate.outputs.upload == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          xcodebuild \
+            -project ios/CodexResetTracker.xcodeproj \
+            -scheme CodexResetTracker \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$PWD/build/CodexResetTracker.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$AUTH_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            archive \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
+
+      - name: Export IPA
+        if: steps.gate.outputs.upload == 'true'
+        run: |
+          set -euo pipefail
+          plist="$PWD/build/ExportOptions.plist"
+          cat > "$plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>destination</key>
+            <string>export</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>teamID</key>
+            <string>${APPLE_TEAM_ID}</string>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>manageAppVersionAndBuildNumber</key>
+            <false/>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$PWD/build/CodexResetTracker.xcarchive" \
+            -exportPath "$PWD/build/export" \
+            -exportOptionsPlist "$plist" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$AUTH_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          find build/export -name '*.ipa' -print
+
+      - name: Upload to App Store Connect
+        if: steps.gate.outputs.upload == 'true'
+        run: |
+          set -euo pipefail
+          ipa=$(find build/export -name '*.ipa' -print | head -1 || true)
+          if [ -z "$ipa" ]; then
+            echo "::error::Export did not produce an IPA."
+            exit 1
+          fi
+          echo "Uploading $ipa (version 1.0.0, build $BUILD_NUMBER)"
+          if xcrun altool --help >/dev/null 2>&1; then
+            xcrun altool --upload-app --type ios --file "$ipa" \
+              --apiKey "$ASC_KEY_ID" \
+              --apiIssuer "$ASC_ISSUER_ID"
+          else
+            xcrun iTMSTransporter -m upload -assetFile "$ipa" \
+              -apiKey "$ASC_KEY_ID" \
+              -apiIssuer "$ASC_ISSUER_ID"
+          fi
+
+      - name: Keep the IPA if upload fails
+        if: failure() && steps.gate.outputs.upload == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: CodexResetTracker-${{ github.run_number }}.${{ github.run_attempt }}
+          path: build/export/*.ipa
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Remove the API key
+        if: always()
+        run: rm -rf "$HOME/.appstoreconnect"

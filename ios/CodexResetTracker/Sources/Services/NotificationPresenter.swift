@@ -23,10 +23,12 @@ struct NotificationPresenter {
             content.body = note.body
             content.sound = .default
             content.threadIdentifier = note.kind.rawValue
+            content.categoryIdentifier = ResetTrackerDefaults.notificationCategory
             content.userInfo = [
                 "eventId": note.eventID,
                 "dedupeKey": note.dedupeKey,
                 "link": note.deepLink,
+                "kind": note.kind.rawValue,
             ]
             let request = UNNotificationRequest(identifier: note.dedupeKey, content: content, trigger: nil)
             try? await center.add(request)
