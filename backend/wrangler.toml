@@ -1,0 +1,16 @@
+name = "codex-reset-tracker"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+# Poll Codex Resets every 2 minutes. The API returns 429 + Retry-After when
+# a client is too fast; the worker backs off instead of retrying immediately.
+[triggers]
+crons = ["*/2 * * * *"]
+
+[[kv_namespaces]]
+binding = "RESET_TRACKER"
+id = "replace-with-kv-namespace-id"
+
+[vars]
+CODEX_RESETS_STATUS_URL = "https://codex-resets.com/api/v1/status"
+CODEX_RESETS_LIST_URL = "https://codex-resets.com/api/v1/resets?limit=20&order=desc"
