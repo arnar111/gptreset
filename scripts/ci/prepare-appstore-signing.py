@@ -5,6 +5,10 @@ Uses the App Store Connect API key already installed for xcodebuild.
 Manual signing needs a local Apple Distribution identity and an App Store
 profile per bundle id. Those profiles are not tied to device UDIDs.
 
+Also ensures the App Store Connect app record exists for the main bundle id.
+A developer-portal App ID is not enough: altool error 19 means that record
+is missing, and the upload cannot look up an Apple ID without it.
+
 The distribution private key is encrypted with the API key and stored in the
 Actions cache so the next run reuses the same certificate. Certificates whose
 private key was lost with a runner are listed below and revoked before a new
@@ -31,6 +35,11 @@ CI_CERT_CN = "GitHub Actions Codex Reset Tracker"
 # failed archive). Apple rewrites the subject, so a common-name scan cannot find them.
 ORPHAN_CERTIFICATE_IDS = ("T67YA5RL8R", "2X7DNBW38Y")
 GROUP = "group.com.arnar111.codexresettracker"
+APP_BUNDLE_ID = "com.arnar111.codexresettracker"
+APP_NAME = "Codex Reset Tracker"
+APP_SKU = "codex-reset-tracker"
+APP_LOCALE = "en-US"
+APP_PLATFORM = "IOS"
 BUNDLES = (
     ("com.arnar111.codexresettracker", "Codex Reset Tracker", ("PUSH_NOTIFICATIONS", "APP_GROUPS")),
     ("com.arnar111.codexresettracker.widget", "Codex Reset Tracker Widget", ("APP_GROUPS",)),
@@ -99,7 +108,10 @@ def make_token(key_id: str, issuer_id: str, key_path: str) -> str:
 
 def api(token: str, method: str, path: str, body: dict | None = None) -> tuple[int, dict]:
     data = None if body is None else json.dumps(body).encode()
-    request = urllib.request.Request(API + path, data=data, method=method)
+    url = path if path.startswith("https://") else API + path
+    if path.startswith("https://") and not path.startswith(API + "/"):
+        fail("Refusing to send the App Store Connect token to an unexpected URL.")
+    request = urllib.request.Request(url, data=data, method=method)
     request.add_header("Authorization", f"Bearer {token}")
     request.add_header("Content-Type", "application/json")
     try:
@@ -133,6 +145,192 @@ def raise_for_agreement(status: int, payload: dict) -> None:
             "Sign in at https://developer.apple.com/account or App Store Connect and accept it, then re-run iOS TestFlight. "
             "No device registration is required."
         )
+
+
+def is_create_forbidden(status: int, payload: dict) -> bool:
+    if status != 403:
+        return False
+    text = apple_errors(payload).lower()
+    return "does not allow" in text and "create" in text
+
+
+def create_forbidden_message(payload: dict) -> str:
+    return (
+        "Apple's App Store Connect API refused to create the app record for "
+        f"{APP_BUNDLE_ID}. The apps resource does not allow CREATE, so a person with "
+        "Admin access has to create it once: App Store Connect → Apps → New App, "
+        f"platform iOS, name {APP_NAME}, primary language English (U.S.), "
+        f"bundle ID {APP_BUNDLE_ID}, SKU {APP_SKU}, user access Full Access. "
+        "Then re-run iOS TestFlight. No device registration is required. "
+        f"Apple said: {apple_errors(payload)}"
+    )
+
+
+def app_create_request() -> dict:
+    return {
+        "data": {
+            "type": "apps",
+            "attributes": {
+                "bundleId": APP_BUNDLE_ID,
+                "name": APP_NAME,
+                "primaryLocale": APP_LOCALE,
+                "sku": APP_SKU,
+                "platform": APP_PLATFORM,
+            },
+        }
+    }
+
+
+def app_create_request_with_version() -> dict:
+    """Body fastlane produce sends: name on the app info, platform on version 1.0.0."""
+    return {
+        "data": {
+            "type": "apps",
+            "attributes": {
+                "bundleId": APP_BUNDLE_ID,
+                "sku": APP_SKU,
+                "primaryLocale": APP_LOCALE,
+            },
+            "relationships": {
+                "appInfos": {"data": [{"type": "appInfos", "id": "${new-appInfo-id}"}]},
+                "appStoreVersions": {"data": [{"type": "appStoreVersions", "id": "${store-version-IOS}"}]},
+            },
+        },
+        "included": [
+            {
+                "type": "appInfos",
+                "id": "${new-appInfo-id}",
+                "relationships": {
+                    "appInfoLocalizations": {
+                        "data": [{"type": "appInfoLocalizations", "id": "${new-appInfoLocalization-id}"}]
+                    }
+                },
+            },
+            {
+                "type": "appInfoLocalizations",
+                "id": "${new-appInfoLocalization-id}",
+                "attributes": {"locale": APP_LOCALE, "name": APP_NAME},
+            },
+            {
+                "type": "appStoreVersions",
+                "id": "${store-version-IOS}",
+                "attributes": {"platform": APP_PLATFORM, "versionString": "1.0.0"},
+                "relationships": {
+                    "appStoreVersionLocalizations": {
+                        "data": [
+                            {
+                                "type": "appStoreVersionLocalizations",
+                                "id": "${new-IOSVersionLocalization-id}",
+                            }
+                        ]
+                    }
+                },
+            },
+            {
+                "type": "appStoreVersionLocalizations",
+                "id": "${new-IOSVersionLocalization-id}",
+                "attributes": {"locale": APP_LOCALE},
+            },
+        ],
+    }
+
+
+def app_record_conflict(status: int, payload: dict) -> bool:
+    text = apple_errors(payload).lower()
+    if any(phrase in text for phrase in ("already exists", "already been", "duplicate", "is already", "been taken", "in use")):
+        return True
+    return status == 409 and "bundle" in text
+
+
+def request_shape_error(status: int, payload: dict) -> bool:
+    if status not in (400, 409, 422):
+        return False
+    if app_record_conflict(status, payload):
+        return False
+    text = apple_errors(payload).lower()
+    return any(phrase in text for phrase in ("attribute", "relationship", "invalid", "unexpected", "not allowed", "required"))
+
+
+def company_name_required(status: int, payload: dict) -> bool:
+    text = apple_errors(payload).lower().replace(" ", "")
+    return "companyname" in text
+
+
+def find_asc_app(token: str) -> str:
+    query = urllib.parse.urlencode({"filter[bundleId]": APP_BUNDLE_ID, "limit": 200})
+    path = f"/v1/apps?{query}"
+    for _ in range(5):
+        status, payload = api(token, "GET", path)
+        raise_for_agreement(status, payload)
+        if status != 200:
+            fail(f"Could not list App Store Connect apps for {APP_BUNDLE_ID}: {apple_errors(payload)}")
+        for item in payload.get("data") or []:
+            attributes = item.get("attributes") or {}
+            if attributes.get("bundleId") == APP_BUNDLE_ID:
+                return str(item.get("id") or "existing")
+        next_link = str((payload.get("links") or {}).get("next") or "")
+        if not next_link.startswith(API + "/"):
+            return ""
+        path = next_link
+    return ""
+
+
+def ensure_asc_app(token: str) -> None:
+    existing = find_asc_app(token)
+    if existing:
+        print(f"App Store Connect app already exists for {APP_BUNDLE_ID} ({existing}).")
+        return
+    print(
+        f"No App Store Connect app for {APP_BUNDLE_ID}. "
+        f"Creating name={APP_NAME!r} sku={APP_SKU} locale={APP_LOCALE} platform=iOS."
+    )
+    bodies = (app_create_request(), app_create_request_with_version())
+    last_status = 0
+    last_payload: dict = {}
+    for index, body in enumerate(bodies):
+        status, payload = api(token, "POST", "/v1/apps", body)
+        last_status, last_payload = status, payload
+        if status in (200, 201):
+            app_id = str((payload.get("data") or {}).get("id") or "")
+            print(f"Created App Store Connect app {APP_BUNDLE_ID} ({app_id}).")
+            return
+        raise_for_agreement(status, payload)
+        if is_create_forbidden(status, payload):
+            fail(create_forbidden_message(payload))
+        if company_name_required(status, payload):
+            fail(
+                "Apple requires a seller name before this account's first App Store Connect app can be created. "
+                "The API key cannot set that name. Sign in to https://appstoreconnect.apple.com/apps → New App, "
+                f"platform iOS, name {APP_NAME}, primary language English (U.S.), bundle ID {APP_BUNDLE_ID}, "
+                f"SKU {APP_SKU}, and enter the seller name Apple asks for. Then re-run iOS TestFlight. "
+                f"Apple said: {apple_errors(payload)}"
+            )
+        if app_record_conflict(status, payload):
+            existing = find_asc_app(token)
+            if existing:
+                print(f"App Store Connect app already exists for {APP_BUNDLE_ID} ({existing}).")
+                return
+        if index == 0 and request_shape_error(status, payload):
+            print(f"::warning::App create request was rejected ({apple_errors(payload)}). Retrying with an initial iOS version.")
+            continue
+        break
+    text = apple_errors(last_payload)
+    if company_name_required(last_status, last_payload):
+        fail(
+            "Apple requires a seller name before this account's first App Store Connect app can be created. "
+            "The API key cannot set that name. Sign in to https://appstoreconnect.apple.com/apps → New App, "
+            f"platform iOS, name {APP_NAME}, primary language English (U.S.), bundle ID {APP_BUNDLE_ID}, "
+            f"SKU {APP_SKU}, and enter the seller name Apple asks for. Then re-run iOS TestFlight. "
+            f"Apple said: {text}"
+        )
+    if app_record_conflict(last_status, last_payload):
+        fail(
+            f"Could not create the App Store Connect app {APP_NAME!r} ({APP_BUNDLE_ID}). "
+            f"The name or SKU is already used by another app. Create an iOS app with bundle ID {APP_BUNDLE_ID} "
+            f"in App Store Connect, or free the name {APP_NAME!r} and SKU {APP_SKU}, then re-run iOS TestFlight. "
+            f"Apple said: {text}"
+        )
+    fail(f"Could not create the App Store Connect app for {APP_BUNDLE_ID}: {text}")
 
 
 def ensure_bundle(token: str, bundle_id: str, name: str) -> str:
@@ -573,6 +771,8 @@ def main() -> None:
         present = capability_types(token, resource_id)
         for capability in capabilities:
             ensure_capability(token, resource_id, capability, present)
+        if bundle_id == APP_BUNDLE_ID:
+            ensure_asc_app(token)
         if not certificate_id:
             certificate_id = ensure_distribution_cert(token, work)
             install_identity(work, certificate_id, key_path)
