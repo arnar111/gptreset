@@ -1,7 +1,7 @@
 import Foundation
 
-enum CodexLog {
-    static func debug(_ message: String) {
+public enum CodexLog {
+    public static func debug(_ message: String) {
         #if DEBUG
         print("[CodexReset] \(message)")
         #endif

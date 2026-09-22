@@ -40,9 +40,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         CodexLog.debug("APNs registration failed: \(error.localizedDescription)")
     }
 
-    func application(
+    /// Nonisolated so the non-Sendable payload is not sent into a main-actor witness.
+    /// The dictionary is unused; the refresh runs on the main actor.
+    nonisolated func application(
         _ application: UIApplication,
-        didReceiveRemoteNotification userInfo: [AnyHashable: Any]
+        didReceiveRemoteNotification _: [AnyHashable: Any]
     ) async -> UIBackgroundFetchResult {
         await MainActor.run {
             PushBridge.shared.onRemote?()
