@@ -97,6 +97,8 @@ ios/CodexResetTracker/         SwiftUI app
 ios/CodexResetWidget/          WidgetKit extension + AppIntent
 ios/CodexResetNotification/    Expanded notification card
 ios/CodexResetTracker.xcodeproj
+.github/workflows/ios-testflight.yml
+docs/IOS_CI_SETUP.md           TestFlight from GitHub Actions, no Mac
 DESIGN.md                      B High-End tokens and layouts
 backend/                       Cloudflare Worker
 scripts/generate_app_icon.py
@@ -174,7 +176,13 @@ Notification extension (`CodexResetNotification`):
 
 Debug builds use the development APNs environment. Release / TestFlight builds use `CodexResetTrackerRelease.entitlements` (`aps-environment` = `production`) and register with `sandbox: false`.
 
-## Install on your iPhone
+## Install on an iPhone without a Mac
+
+GitHub Actions compiles the app on a Mac runner. A push to `main`, or **Actions → iOS TestFlight → Run workflow**, uploads a Release build to TestFlight when four GitHub secrets are set (`ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_PRIVATE_KEY`, `APPLE_TEAM_ID`). Pull requests only compile; they do not upload.
+
+You install the result with the TestFlight app. The Apple portal steps, the API key, and the secret names are in [docs/IOS_CI_SETUP.md](docs/IOS_CI_SETUP.md). Placeholders for those names are in `.env.example`. Do not commit the `.p8` files.
+
+## Install on your iPhone from Xcode
 
 1. Connect the iPhone and trust the computer.
 2. In Xcode, choose your iPhone as the run destination.
