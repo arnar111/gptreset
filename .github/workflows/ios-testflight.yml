@@ -47,6 +47,7 @@ jobs:
             -skipPackagePluginValidation \
             -skipMacroValidation \
             build \
+            CODE_SIGN_STYLE=Automatic \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY=""
@@ -125,14 +126,18 @@ jobs:
           fi
           echo "AUTH_KEY_PATH=$key" >> "$GITHUB_ENV"
 
+      - name: Prepare App Store profiles
+        if: steps.gate.outputs.upload == 'true'
+        run: python3 scripts/ci/prepare-appstore-signing.py
+
       - name: Archive Release
         if: steps.gate.outputs.upload == 'true'
         run: |
           set -euo pipefail
           mkdir -p build
-          # App Store distribution. Development profiles need a registered device.
-          # TestFlight uses App Store profiles, so no device list is required.
-          echo "Signing identity: Apple Distribution (App Store), sdk iphoneos"
+          # Manual + Apple Distribution. Automatic signing rejects this identity.
+          # Profiles are App Store (IOS_APP_STORE), which do not list devices.
+          echo "Signing style: Manual. Identity: Apple Distribution. SDK: iphoneos"
           xcodebuild \
             -project ios/CodexResetTracker.xcodeproj \
             -scheme CodexResetTracker \
@@ -148,9 +153,10 @@ jobs:
             -skipMacroValidation \
             archive \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
             "CODE_SIGN_IDENTITY[sdk=iphoneos*]=Apple Distribution" \
+            'PROVISIONING_PROFILE_SPECIFIER=$(PRODUCT_BUNDLE_IDENTIFIER) AppStore' \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
 
       - name: Export IPA
@@ -158,9 +164,8 @@ jobs:
         run: |
           set -euo pipefail
           plist="$PWD/build/ExportOptions.plist"
-          # method app-store-connect is the current name of app-store. destination export
-          # writes an IPA signed for TestFlight, not a development install.
-          echo "Export method: app-store-connect (App Store distribution)"
+          # Manual, matching the archive. method app-store-connect is the App Store / TestFlight method.
+          echo "Export method: app-store-connect, signing style: manual"
           cat > "$plist" <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -171,9 +176,20 @@ jobs:
             <key>destination</key>
             <string>export</string>
             <key>signingStyle</key>
-            <string>automatic</string>
+            <string>manual</string>
+            <key>signingCertificate</key>
+            <string>Apple Distribution</string>
             <key>teamID</key>
             <string>${APPLE_TEAM_ID}</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.arnar111.codexresettracker</key>
+              <string>com.arnar111.codexresettracker AppStore</string>
+              <key>com.arnar111.codexresettracker.widget</key>
+              <string>com.arnar111.codexresettracker.widget AppStore</string>
+              <key>com.arnar111.codexresettracker.notification</key>
+              <string>com.arnar111.codexresettracker.notification AppStore</string>
+            </dict>
             <key>uploadSymbols</key>
             <true/>
             <key>manageAppVersionAndBuildNumber</key>

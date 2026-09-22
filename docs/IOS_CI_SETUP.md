@@ -91,14 +91,11 @@ Also copy the **Team ID** from [Membership details](https://developer.apple.com/
 
 ## 4. How signing works in CI
 
-The project uses Automatic signing. The Release archive sets the signing identity to **Apple Distribution** for the iOS device SDK (`iphoneos`). Xcode then creates App Store profiles, not iOS App Development profiles. Development profiles are the ones that require a device list. This workflow does not register devices.
+Simulator compiles stay on **Automatic** signing and do not use a distribution identity.
 
-On an upload, the workflow passes your Team ID and the API key to `xcodebuild -allowProvisioningUpdates`. Xcode then:
+The TestFlight archive uses **Manual** signing and the **Apple Distribution** identity. Xcode rejects Automatic signing combined with that identity. Before the archive, the workflow uses the API key to create the three App IDs if they are missing, one Apple Distribution certificate, and an App Store profile for each bundle id. App Store profiles do not contain device UDIDs. The workflow does not register devices.
 
-1. Creates a cloud-managed Apple Distribution certificate for the team. The private key stays with Apple. You do not export a `.p12`.
-2. Creates App Store provisioning profiles for `com.arnar111.codexresettracker`, `com.arnar111.codexresettracker.widget`, and `com.arnar111.codexresettracker.notification`.
-3. Archives the Release app with `-sdk iphoneos`, including the widget and the notification extension.
-4. Exports an IPA with method `app-store-connect` (Apple’s current name for `app-store`) and destination `export`, then uploads it with `xcrun altool` (or Transporter if `altool` is absent).
+The IPA export uses method `app-store-connect` (Apple’s current name for `app-store`), destination `export`, and the same manual distribution profiles. `xcrun altool` (or Transporter) uploads it.
 
 Release archives use `CodexResetTrackerRelease.entitlements`, so TestFlight builds talk to production APNs (`sandbox: false`). That is separate from the API key above. Push still needs the worker secrets in the README (`APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_BUNDLE_ID`, `APNS_PRIVATE_KEY`). The APNs `.p8` and the App Store Connect `.p8` are different files.
 
@@ -152,7 +149,10 @@ To put the app on a phone that uses a different Apple ID, add that person in Tes
 | --- | --- |
 | Missing GitHub secret | Step 5. A manual run fails on purpose when a secret is empty. |
 | No signing certificate / no profiles | The API key is not Admin, or one of the three App IDs from step 1 is missing. The notification id is `com.arnar111.codexresettracker.notification`. |
-| Your team has no devices / iOS App Development provisioning profiles | Do not register a device. That message means the archive asked for a development profile. The workflow now signs Release with Apple Distribution and exports with `app-store-connect`. Re-run **iOS TestFlight**. |
+| Your team has no devices / iOS App Development provisioning profiles | Do not register a device. Re-run **iOS TestFlight**. The archive is manual Apple Distribution with App Store profiles. |
+| conflicting provisioning settings | Automatic signing was combined with an Apple Distribution identity. The archive step must stay `CODE_SIGN_STYLE=Manual`. |
+| certificate limit | Revoke an unused Apple Distribution certificate in the developer portal, then re-run. Do not register devices. |
+| agreement | Accept the latest Apple Developer agreement in the browser, then re-run. |
 | Profile does not include the App Group or Push | Enable those capabilities on the App IDs, then re-run. |
 | No suitable application record | Create the App Store Connect app in step 2 with bundle id `com.arnar111.codexresettracker`. |
 | Authentication failed / key not found | Issuer ID, Key ID, and the `.p8` are not the same key. |
