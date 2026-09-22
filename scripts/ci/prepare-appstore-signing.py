@@ -26,6 +26,8 @@ from pathlib import Path
 
 API = "https://api.appstoreconnect.apple.com"
 CI_CERT_CN = "GitHub Actions Codex Reset Tracker"
+# Created on a runner whose keychain rejected the PKCS#12, so the private key is gone.
+ORPHAN_CERTIFICATE_IDS = ("T67YA5RL8R",)
 GROUP = "group.com.arnar111.codexresettracker"
 BUNDLES = (
     ("com.arnar111.codexresettracker", "Codex Reset Tracker", ("PUSH_NOTIFICATIONS", "APP_GROUPS")),
@@ -210,7 +212,21 @@ def subject_of(certificate_b64: str, work: Path) -> str:
     return result.stdout or ""
 
 
+def revoke_certificate(token: str, certificate_id: str) -> None:
+    status, _payload = api(token, "GET", f"/v1/certificates/{certificate_id}")
+    if status == 404:
+        return
+    if status != 200:
+        return
+    print(f"Revoking unused distribution certificate {certificate_id}")
+    deleted, body = api(token, "DELETE", f"/v1/certificates/{certificate_id}")
+    if deleted not in (200, 204):
+        fail(f"Could not revoke certificate {certificate_id}: {apple_errors(body)}")
+
+
 def ensure_distribution_cert(token: str, work: Path) -> str:
+    for certificate_id in ORPHAN_CERTIFICATE_IDS:
+        revoke_certificate(token, certificate_id)
     status, payload = api(token, "GET", "/v1/certificates?filter[certificateType]=DISTRIBUTION&limit=20")
     raise_for_agreement(status, payload)
     if status != 200:
@@ -276,41 +292,73 @@ def ensure_distribution_cert(token: str, work: Path) -> str:
     cer = work / "distribution.cer"
     cer.write_bytes(base64.b64decode(cert_b64))
     print(f"Created Apple Distribution certificate {cert_id}")
+    print(subject_of(cert_b64, work).strip())
     return cert_id
 
 
+def run_secret(args: list[str], secret: str) -> None:
+    result = subprocess.run(args, capture_output=True, text=True, check=False)
+    if result.returncode == 0:
+        return
+    shown = " ".join("***" if part == secret else part for part in args)
+    detail = (result.stderr or result.stdout or "").strip()
+    fail(f"{shown} failed: {detail}")
+
+
 def install_identity(work: Path) -> None:
-    password = base64.b64encode(os.urandom(18)).decode("ascii")
+    password = base64.urlsafe_b64encode(os.urandom(18)).decode("ascii")
+    pem = work / "distribution.pem"
     p12 = work / "distribution.p12"
+    converted = subprocess.run(
+        ["openssl", "x509", "-inform", "DER", "-in", str(work / "distribution.cer"), "-out", str(pem)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if converted.returncode != 0:
+        fail("Could not read the distribution certificate.")
+    # OpenSSL 3's default PKCS#12 uses PBES2. macOS `security import` reports that as a bad MAC.
+    export_base = [
+        "openssl",
+        "pkcs12",
+        "-export",
+        "-inkey",
+        str(work / "distribution.key"),
+        "-in",
+        str(pem),
+        "-out",
+        str(p12),
+        "-passout",
+        f"pass:{password}",
+    ]
     exported = subprocess.run(
-        [
-            "openssl",
-            "pkcs12",
-            "-export",
-            "-inkey",
-            str(work / "distribution.key"),
-            "-in",
-            str(work / "distribution.cer"),
-            "-out",
-            str(p12),
-            "-passout",
-            f"pass:{password}",
-        ],
+        export_base[:2] + ["-legacy"] + export_base[2:],
         capture_output=True,
         text=True,
         check=False,
     )
     if exported.returncode != 0:
-        fail("Could not package the distribution identity.")
+        exported = subprocess.run(
+            export_base[:2]
+            + ["-keypbe", "PBE-SHA1-3DES", "-certpbe", "PBE-SHA1-3DES", "-macalg", "SHA1"]
+            + export_base[2:],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    if exported.returncode != 0:
+        fail("Could not package the distribution identity for the macOS keychain.")
     keychain = work / "ci.keychain-db"
-    subprocess.run(["security", "create-keychain", "-p", password, str(keychain)], check=True)
-    subprocess.run(["security", "set-keychain-settings", "-lut", "21600", str(keychain)], check=True)
-    subprocess.run(["security", "unlock-keychain", "-p", password, str(keychain)], check=True)
-    listed = subprocess.run(["security", "list-keychains", "-d", "user"], capture_output=True, text=True, check=True)
+    run_secret(["security", "create-keychain", "-p", password, str(keychain)], password)
+    run_secret(["security", "set-keychain-settings", "-lut", "21600", str(keychain)], password)
+    run_secret(["security", "unlock-keychain", "-p", password, str(keychain)], password)
+    listed = subprocess.run(["security", "list-keychains", "-d", "user"], capture_output=True, text=True, check=False)
+    if listed.returncode != 0:
+        fail("Could not read the login keychains.")
     existing = [part.strip().strip('"') for part in listed.stdout.splitlines() if part.strip()]
-    subprocess.run(["security", "list-keychains", "-d", "user", "-s", str(keychain), *existing], check=True)
-    subprocess.run(["security", "default-keychain", "-s", str(keychain)], check=True)
-    subprocess.run(
+    run_secret(["security", "list-keychains", "-d", "user", "-s", str(keychain), *existing], password)
+    run_secret(["security", "default-keychain", "-s", str(keychain)], password)
+    run_secret(
         [
             "security",
             "import",
@@ -324,11 +372,11 @@ def install_identity(work: Path) -> None:
             "-T",
             "/usr/bin/security",
         ],
-        check=True,
+        password,
     )
-    subprocess.run(
+    run_secret(
         ["security", "set-key-partition-list", "-S", "apple-tool:,apple:,codesign:", "-s", "-k", password, str(keychain)],
-        check=True,
+        password,
     )
     identities = subprocess.run(
         ["security", "find-identity", "-v", "-p", "codesigning", str(keychain)],
