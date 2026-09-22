@@ -56,18 +56,23 @@ Save each one. Push Notifications belongs only on the app id. The widget and the
 
 You do not register iPhones, and you do not create a distribution certificate or a provisioning profile by hand. TestFlight uses App Store profiles, which are not tied to a device. The workflow asks Xcode to create those profiles.
 
-## 2. Create the App Store Connect app
+## 2. App Store Connect app
 
-Open [App Store Connect → Apps](https://appstoreconnect.apple.com/apps) → **+** → **New App**.
+The upload needs an App Store Connect app for `com.arnar111.codexresettracker`. The developer-portal App ID from step 1 is not that record. `altool` error 19, `Cannot determine the Apple ID from Bundle ID`, means the record is missing.
 
-- Platforms: **iOS**
+The TestFlight job creates the record when it is missing, with the Admin API key:
+
+- Platform: **iOS**
 - Name: `Codex Reset Tracker`
-- Primary language: English
-- Bundle ID: `com.arnar111.codexresettracker` (it appears in the list only after step 1)
+- Primary language: English (U.S.)
+- Bundle ID: `com.arnar111.codexresettracker`
 - SKU: `codex-reset-tracker`
-- User Access: Full Access
 
-Create the app. You can leave screenshots and the description empty until you want a public App Store release. TestFlight does not need them.
+If that app already exists, the job leaves it alone. Screenshots and the description can stay empty until a public App Store release. TestFlight does not need them.
+
+If Apple blocks creation until a person accepts an agreement, the job stops and names that agreement. Sign in at [App Store Connect agreements](https://appstoreconnect.apple.com/agreements) or the [developer account](https://developer.apple.com/account), accept it, and re-run. You do not register a device.
+
+If Apple’s API refuses to create apps at all, the log says so. Then create it once by hand: [Apps](https://appstoreconnect.apple.com/apps) → **+** → **New App**, with the values above and User Access **Full Access**.
 
 ## 3. Create the App Store Connect API key
 
@@ -93,7 +98,7 @@ Also copy the **Team ID** from [Membership details](https://developer.apple.com/
 
 Simulator compiles stay on **Automatic** signing and do not use a distribution identity.
 
-The TestFlight archive uses **Manual** signing and the **Apple Distribution** identity. Xcode rejects Automatic signing combined with that identity. Before the archive, the workflow uses the API key to create the three App IDs if they are missing, one Apple Distribution certificate, and an App Store profile for each bundle id. The certificate’s private key is encrypted and kept in the Actions cache so the next run reuses it instead of minting another certificate. App Store profiles do not contain device UDIDs. The workflow does not register devices.
+The TestFlight archive uses **Manual** signing and the **Apple Distribution** identity. Xcode rejects Automatic signing combined with that identity. Before the archive, the workflow uses the API key to create the three App IDs if they are missing, the App Store Connect app record if it is missing, one Apple Distribution certificate, and an App Store profile for each bundle id. The certificate’s private key is encrypted and kept in the Actions cache so the next run reuses it instead of minting another certificate. App Store profiles do not contain device UDIDs. The workflow does not register devices.
 
 The IPA export uses method `app-store-connect` (Apple’s current name for `app-store`), destination `export`, and the same manual distribution profiles. `xcrun altool` (or Transporter) uploads it.
 
@@ -154,7 +159,7 @@ To put the app on a phone that uses a different Apple ID, add that person in Tes
 | certificate limit | Revoke an unused Apple Distribution certificate in the developer portal, then re-run. Do not register devices. |
 | agreement | Accept the latest Apple Developer agreement in the browser, then re-run. |
 | Profile does not include the App Group or Push | Enable those capabilities on the App IDs, then re-run. |
-| No suitable application record | Create the App Store Connect app in step 2 with bundle id `com.arnar111.codexresettracker`. |
+| No suitable application record / Cannot determine the Apple ID from Bundle ID (19) | The App Store Connect app record is missing. Re-run so the workflow can create it. If the log says an agreement is unsigned, or that Apple does not allow CREATE, follow that message. |
 | Authentication failed / key not found | Issuer ID, Key ID, and the `.p8` are not the same key. |
 | Bundle version must be higher | Re-run the workflow. The build number includes the attempt, so the new upload is a new build. |
 | Build did not produce the widget | The compile job failed before upload. Open the **Build app and widgets** log. |
