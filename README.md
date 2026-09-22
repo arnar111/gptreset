@@ -40,6 +40,19 @@ The first successful sync does not notify for announcements already on the serve
 
 Widget celebration mode lasts **6 hours** after a confirmed full reset (change it in Settings, 1–24). A scheduled reset never turns celebration on.
 
+## Design direction
+
+**B High-End.** Tokens and layouts are in [DESIGN.md](DESIGN.md).
+
+Home Screen widgets sit on deep charcoal glass with hairline row separators and SF type. The accent is warm coral (`#E8896A` / `#F0A890`), and a soft glow appears only during the celebration window.
+
+- Small celebration: `RESET!`, how long ago, banked count
+- Small tracking: `10d 7h`, “since full”, banked count
+- Medium celebration: `🔥 RESET!`, time ago, “Usage limits cleared”, then `BANKED` / `NEXT` / `PRIOR FULL`, plus a quiet **Used banked reset** chip
+- Lock Screen accessories stay short and monochrome
+
+Alerts keep the four titles (full, banked, double, scheduled). Long-pressing one opens a charcoal card; a full reset uses a coral title and a restrained glow. The collapsed banner is the system notification, so that color is on the expanded card.
+
 ## Architecture
 
 ```
@@ -82,7 +95,9 @@ Sources/CodexResetCore/
 Tests/CodexResetCoreTests/
 ios/CodexResetTracker/         SwiftUI app
 ios/CodexResetWidget/          WidgetKit extension + AppIntent
+ios/CodexResetNotification/    Expanded notification card
 ios/CodexResetTracker.xcodeproj
+DESIGN.md                      B High-End tokens and layouts
 backend/                       Cloudflare Worker
 scripts/generate_app_icon.py
 .env.example
@@ -94,6 +109,7 @@ Identifiers, unless you change them everywhere they appear:
 | --- | --- |
 | App bundle id | `com.arnar111.codexresettracker` |
 | Widget bundle id | `com.arnar111.codexresettracker.widget` |
+| Notification extension | `com.arnar111.codexresettracker.notification` |
 | App Group | `group.com.arnar111.codexresettracker` |
 | URL scheme | `codexreset://latest` and `codexreset://event/<id>` |
 | Deployment | iOS 18, iPhone |
@@ -122,7 +138,7 @@ open ios/CodexResetTracker.xcodeproj
 ```
 
 1. Select the **CodexResetTracker** scheme.
-2. Signing & Capabilities → set your Team on **both** the app and the widget targets.
+2. Signing & Capabilities → set your Team on the app, the widget, and the notification extension.
 3. The entitlements already request Push Notifications and the App Group. Xcode will offer to register them if your team can. If it does not, create them on the developer site (below) and download a new profile.
 4. Pick an iPhone simulator to try the UI, widgets, and local alerts.
 5. Remote push only works on a **physical iPhone**.
@@ -151,6 +167,10 @@ App target:
 Widget target:
 
 - App Groups → the same group
+
+Notification extension (`CodexResetNotification`):
+
+- No extra capability. It draws the expanded alert for category `codex.reset`.
 
 Debug builds use the development APNs environment. Release / TestFlight builds use `CodexResetTrackerRelease.entitlements` (`aps-environment` = `production`) and register with `sandbox: false`.
 
@@ -235,8 +255,9 @@ Until the worker URL is saved and APNs registration succeeds, a debug build and 
 4. Identifiers → App IDs:
    - `com.arnar111.codexresettracker` with **Push Notifications** and **App Groups**
    - `com.arnar111.codexresettracker.widget` with **App Groups**
+   - `com.arnar111.codexresettracker.notification` (content extension; no extra capability)
 5. Identifiers → App Groups → `group.com.arnar111.codexresettracker`, and attach it to both App IDs.
-6. Xcode → Signing & Capabilities → your team on both targets. Let Xcode create the development provisioning profiles.
+6. Xcode → Signing & Capabilities → your team on the app, widget, and notification extension. Let Xcode create the development provisioning profiles.
 7. Put the four `APNS_*` values into the worker with `wrangler secret put`, then `wrangler deploy`.
 8. On the iPhone, Settings → Push server → paste the worker URL → Save. Settings should say **Registered for reset alerts** after the token arrives.
 9. Confirm `GET https://<worker>/health` shows `"apnsConfigured": true` after the secrets are set. It stays `false` until all four are present.

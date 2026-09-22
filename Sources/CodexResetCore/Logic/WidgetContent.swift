@@ -10,7 +10,10 @@ public struct WidgetContent: Equatable {
 
     public var mode: Mode
     public var symbolName: String
+    /// Lock Screen and other tight surfaces. Celebration stays "RESET".
     public var compactValue: String
+    /// Home Screen headline. Celebration is "RESET!"; tracking is two units ("10d 7h").
+    public var headline: String
     public var caption: String
     public var ago: String
     public var stamp: String
@@ -23,6 +26,7 @@ public struct WidgetContent: Equatable {
         mode: Mode,
         symbolName: String,
         compactValue: String,
+        headline: String,
         caption: String,
         ago: String,
         stamp: String,
@@ -34,6 +38,7 @@ public struct WidgetContent: Equatable {
         self.mode = mode
         self.symbolName = symbolName
         self.compactValue = compactValue
+        self.headline = headline
         self.caption = caption
         self.ago = ago
         self.stamp = stamp
@@ -59,6 +64,7 @@ public enum WidgetContentBuilder {
                 mode: .celebration,
                 symbolName: "flame.fill",
                 compactValue: "RESET",
+                headline: "RESET!",
                 caption: "100% reset",
                 ago: elapsed.phrase,
                 stamp: stamp,
@@ -83,6 +89,7 @@ public enum WidgetContentBuilder {
                 mode: .tracking,
                 symbolName: "flame.fill",
                 compactValue: elapsed.short,
+                headline: elapsed.detailed,
                 caption: "since full reset",
                 ago: elapsed.phrase,
                 stamp: stamp,
@@ -101,6 +108,7 @@ public enum WidgetContentBuilder {
                 mode: .scheduled,
                 symbolName: "hourglass",
                 compactValue: window.compact,
+                headline: window.compact,
                 caption: "reset scheduled",
                 ago: window.phrase,
                 stamp: stamp,
@@ -115,6 +123,7 @@ public enum WidgetContentBuilder {
             mode: .empty,
             symbolName: "flame",
             compactValue: "—",
+            headline: "—",
             caption: "No reset yet",
             ago: "Open the app",
             stamp: "",

@@ -171,6 +171,7 @@ export function apnsPayload(event, timeZone) {
     aps: {
       alert: { title: note.title, body: note.body },
       sound: "default",
+      category: "codex.reset",
       "thread-id": note.kind,
     },
     eventId: event.id,

@@ -11,4 +11,6 @@ public enum ResetTrackerDefaults {
     public static let appGroupIdentifier = "group.com.arnar111.codexresettracker"
     public static let urlScheme = "codexreset"
     public static let stateFileName = "state.json"
+    /// Shared by local alerts, APNs, and the notification content extension.
+    public static let notificationCategory = "codex.reset"
 }

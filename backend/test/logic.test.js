@@ -134,6 +134,7 @@ test("first poll bootstraps without sending, later polls notify once", async () 
   assert.equal(second.sent, 1);
   assert.equal(sent[0].kind, "full");
   assert.equal(sent[0].aps.alert.title, "🔥 Codex Full Reset");
+  assert.equal(sent[0].aps.category, "codex.reset");
 
   const third = await runPoll(env, {
     fetchImpl,

@@ -16,7 +16,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        UNUserNotificationCenter.current().delegate = self
+        let center = UNUserNotificationCenter.current()
+        center.delegate = self
+        center.setNotificationCategories([
+            UNNotificationCategory(
+                identifier: ResetTrackerDefaults.notificationCategory,
+                actions: [],
+                intentIdentifiers: [],
+                options: []
+            ),
+        ])
         return true
     }
 

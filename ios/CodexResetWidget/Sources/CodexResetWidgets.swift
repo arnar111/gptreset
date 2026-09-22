@@ -2,6 +2,49 @@ import SwiftUI
 import WidgetKit
 import CodexResetCore
 
+/// Variant B High-End. Home Screen widgets only; Lock Screen accessories stay template.
+enum HighEnd {
+    static let coral = Color(red: 232 / 255, green: 137 / 255, blue: 106 / 255)
+    static let coralSoft = Color(red: 240 / 255, green: 168 / 255, blue: 144 / 255)
+    static let mist = Color.white.opacity(0.62)
+    static let hairline = Color.white.opacity(0.14)
+    static let charcoalTop = Color(red: 28 / 255, green: 29 / 255, blue: 33 / 255)
+    static let charcoalBottom = Color(red: 12 / 255, green: 13 / 255, blue: 15 / 255)
+}
+
+struct HighEndBackground: View {
+    var celebrating: Bool
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [HighEnd.charcoalTop, HighEnd.charcoalBottom],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            LinearGradient(
+                colors: [Color.white.opacity(0.07), Color.white.opacity(0)],
+                startPoint: .top,
+                endPoint: .center
+            )
+            if celebrating {
+                RadialGradient(
+                    colors: [HighEnd.coral.opacity(0.42), HighEnd.coral.opacity(0)],
+                    center: UnitPoint(x: 0.15, y: 0.0),
+                    startRadius: 0,
+                    endRadius: 170
+                )
+                RadialGradient(
+                    colors: [HighEnd.coralSoft.opacity(0.16), Color.clear],
+                    center: UnitPoint(x: 0.85, y: 1.0),
+                    startRadius: 0,
+                    endRadius: 140
+                )
+            }
+        }
+    }
+}
+
 struct StatusEntry: TimelineEntry {
     var date: Date
     var content: WidgetContent?
@@ -9,7 +52,7 @@ struct StatusEntry: TimelineEntry {
 
 struct StatusProvider: TimelineProvider {
     func placeholder(in context: Context) -> StatusEntry {
-        StatusEntry(date: Date(), content: sample)
+        StatusEntry(date: Date(), content: celebrationSample)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (StatusEntry) -> Void) {
@@ -28,21 +71,22 @@ struct StatusProvider: TimelineProvider {
         if let state = SharedStateStore.loadIfPresent() {
             return StatusEntry(date: date, content: WidgetContentBuilder.make(state: state, now: date))
         }
-        return StatusEntry(date: date, content: sampleIfEmpty ? sample : nil)
+        return StatusEntry(date: date, content: sampleIfEmpty ? celebrationSample : nil)
     }
 
-    private var sample: WidgetContent {
+    private var celebrationSample: WidgetContent {
         WidgetContent(
-            mode: .tracking,
+            mode: .celebration,
             symbolName: "flame.fill",
-            compactValue: "10d",
-            caption: "since full reset",
-            ago: "10d 7h ago",
-            stamp: "Sep 12 · 08:09",
+            compactValue: "RESET",
+            headline: "RESET!",
+            caption: "100% reset",
+            ago: "23m ago",
+            stamp: "Sep 22 · 18:42",
             bankedCount: 2,
             scheduledCompact: "< 15h",
             scheduledPhrase: "Within ~15h",
-            accessibilityLabel: "Last full reset 10 days ago. 2 banked available. Next reset within about 15 hours."
+            accessibilityLabel: "Full reset, 23 minutes ago. 2 banked resets available."
         )
     }
 }
@@ -51,7 +95,6 @@ struct CodexStatusWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "CodexStatus", provider: StatusProvider()) { entry in
             StatusWidgetView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("Codex Reset")
         .description("Time since the last full reset, banked resets you have left, and whether another reset is scheduled.")
@@ -68,16 +111,23 @@ struct CodexStatusWidget: Widget {
 
 struct StatusWidgetView: View {
     @Environment(\.widgetFamily) private var family
+    @Environment(\.widgetRenderingMode) private var renderingMode
     var entry: StatusEntry
+
+    private var celebrating: Bool { entry.content?.mode == .celebration }
+
+    private var accent: Color {
+        renderingMode == .accented ? .primary : HighEnd.coral
+    }
 
     var body: some View {
         Group {
             if let content = entry.content {
                 switch family {
                 case .systemMedium:
-                    medium(content)
+                    homeCard(content, prominent: false)
                 case .systemLarge:
-                    large(content)
+                    homeCard(content, prominent: true)
                 case .accessoryInline:
                     inline(content)
                 case .accessoryCircular:
@@ -90,96 +140,158 @@ struct StatusWidgetView: View {
             } else {
                 Text("Open Codex Reset")
                     .font(.caption)
+                    .foregroundStyle(HighEnd.mist)
             }
         }
         .widgetURL(URL(string: "codexreset://latest"))
+        .containerBackground(for: .widget) {
+            if family.isHomeScreen {
+                HighEndBackground(celebrating: celebrating)
+            } else {
+                AccessoryWidgetBackground()
+            }
+        }
     }
 
     private func small(_ content: WidgetContent) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("CODEX")
-                .font(.caption2.weight(.bold))
-                .tracking(1.1)
-                .foregroundStyle(.secondary)
-            Label(content.compactValue, systemImage: content.symbolName)
-                .font(.title2.weight(.bold))
+        VStack(alignment: .leading, spacing: 2) {
+            Text(content.mode == .celebration ? "RESET!" : content.headline)
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(content.mode == .celebration ? accent : Color.white)
                 .widgetAccentable()
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            Text(content.mode == .celebration ? content.ago : content.caption)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .minimumScaleFactor(0.65)
+            Text(smallSecondary(content))
+                .font(.subheadline)
+                .foregroundStyle(HighEnd.mist)
                 .lineLimit(1)
+            Spacer(minLength: 0)
             Text("\(content.bankedCount) banked")
-                .font(.caption.weight(.semibold))
-            if content.mode == .tracking, let scheduled = content.scheduledCompact {
-                Text(scheduled)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(content.mode == .celebration ? HighEnd.coralSoft : Color.white.opacity(0.88))
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .accessibilityLabel(content.accessibilityLabel)
     }
 
-    private func medium(_ content: WidgetContent) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("CODEX RESETS")
-                .font(.caption2.weight(.bold))
-                .tracking(1.1)
-                .foregroundStyle(.secondary)
-            HStack(alignment: .top) {
-                column(symbol: content.symbolName, title: content.mode == .celebration ? "FULL" : "FULL", value: content.mode == .celebration ? "RESET" : content.compactValue, detail: content.mode == .celebration ? content.ago : content.ago)
-                column(symbol: "building.columns.fill", title: "BANKED", value: "\(content.bankedCount)", detail: "available")
-                column(symbol: "hourglass", title: "NEXT", value: content.scheduledCompact ?? "—", detail: content.scheduledPhrase ?? "None")
-            }
-            if content.bankedCount > 0 {
-                Button(intent: MarkBankedResetUsedIntent()) {
-                    Text("Used banked reset")
-                        .frame(maxWidth: .infinity)
+    private func smallSecondary(_ content: WidgetContent) -> String {
+        switch content.mode {
+        case .celebration:
+            return content.ago
+        case .tracking:
+            return "since full"
+        default:
+            return content.caption
+        }
+    }
+
+    private func homeCard(_ content: WidgetContent, prominent: Bool) -> some View {
+        VStack(alignment: .leading, spacing: prominent ? 10 : 6) {
+            if content.mode == .celebration {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("🔥 RESET!")
+                        .font((prominent ? Font.title : Font.title3).weight(.semibold))
+                        .foregroundStyle(accent)
+                        .widgetAccentable()
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    Text(content.ago)
+                        .font(.subheadline)
+                        .foregroundStyle(HighEnd.mist)
+                        .lineLimit(1)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                Text("Usage limits cleared")
+                    .font(.subheadline)
+                    .foregroundStyle(HighEnd.mist)
+            } else {
+                Text(content.headline)
+                    .font((prominent ? Font.largeTitle : Font.title2).weight(.semibold))
+                    .foregroundStyle(.white)
+                    .widgetAccentable()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                Text(idleCaption(content))
+                    .font(.subheadline)
+                    .foregroundStyle(HighEnd.mist)
+                    .lineLimit(1)
+            }
+
+            VStack(spacing: 0) {
+                metricRow("BANKED", value: "\(content.bankedCount)")
+                hairline
+                metricRow("NEXT", value: content.scheduledPhrase ?? content.scheduledCompact ?? "None")
+                hairline
+                metricRow(stampLabel(content), value: content.stamp.isEmpty ? "—" : content.stamp)
+            }
+
+            if content.bankedCount > 0 {
+                usedChip
+            }
+            if prominent {
+                Spacer(minLength: 0)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .accessibilityLabel(content.accessibilityLabel)
     }
 
-    private func large(_ content: WidgetContent) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("CODEX RESETS")
-                .font(.caption.weight(.bold))
-                .tracking(1.2)
-                .foregroundStyle(.secondary)
-            Label(content.mode == .celebration ? "Full reset" : content.caption, systemImage: content.symbolName)
-                .font(.headline)
-                .widgetAccentable()
-            Text(content.mode == .celebration ? content.caption : content.ago)
-                .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                .minimumScaleFactor(0.6)
-                .lineLimit(2)
-            if !content.stamp.isEmpty {
-                Text(content.stamp)
-                    .foregroundStyle(.secondary)
-            }
-            Text("\(content.bankedCount) banked available")
-                .font(.title3.weight(.semibold))
-            if let phrase = content.scheduledPhrase {
-                Text("Next · \(phrase)")
-                    .foregroundStyle(.secondary)
-            }
-            if content.bankedCount > 0 {
-                Button(intent: MarkBankedResetUsedIntent()) {
-                    Text("Used banked reset")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-            }
-            Spacer(minLength: 0)
+    private func idleCaption(_ content: WidgetContent) -> String {
+        switch content.mode {
+        case .tracking:
+            return "since full reset"
+        case .scheduled:
+            return "reset scheduled"
+        case .empty:
+            return content.caption
+        case .celebration:
+            return "Usage limits cleared"
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityLabel(content.accessibilityLabel)
+    }
+
+    private func stampLabel(_ content: WidgetContent) -> String {
+        switch content.mode {
+        case .celebration:
+            return "PRIOR FULL"
+        case .scheduled:
+            return "EXPECTED"
+        default:
+            return "LAST FULL"
+        }
+    }
+
+    private func metricRow(_ title: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .tracking(0.7)
+                .foregroundStyle(HighEnd.mist)
+            Spacer(minLength: 8)
+            Text(value)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .padding(.vertical, 3)
+    }
+
+    private var hairline: some View {
+        Rectangle()
+            .fill(HighEnd.hairline)
+            .frame(height: 0.5)
+    }
+
+    private var usedChip: some View {
+        Button(intent: MarkBankedResetUsedIntent()) {
+            Text("Used banked reset")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(HighEnd.coralSoft)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(HighEnd.coral.opacity(0.14), in: Capsule())
+                .overlay(Capsule().stroke(HighEnd.hairline, lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
     }
 
     private func inline(_ content: WidgetContent) -> some View {
@@ -212,7 +324,7 @@ struct StatusWidgetView: View {
 
     private func rectangular(_ content: WidgetContent) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("\(content.compactValue) \(content.caption)")
+            Text(rectangularTitle(content))
                 .font(.headline)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -223,22 +335,26 @@ struct StatusWidgetView: View {
         .accessibilityLabel(content.accessibilityLabel)
     }
 
-    private func column(symbol: String, title: String, value: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Label(title, systemImage: symbol)
-                .font(.caption2.weight(.bold))
-                .lineLimit(1)
-                .widgetAccentable()
-            Text(value)
-                .font(.headline)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            Text(detail)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+    private func rectangularTitle(_ content: WidgetContent) -> String {
+        switch content.mode {
+        case .celebration:
+            return "RESET! · \(content.ago)"
+        case .tracking:
+            return "\(content.headline) since full"
+        default:
+            return "\(content.compactValue) \(content.caption)"
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private extension WidgetFamily {
+    var isHomeScreen: Bool {
+        switch self {
+        case .systemSmall, .systemMedium, .systemLarge, .systemExtraLarge:
+            return true
+        default:
+            return false
+        }
     }
 }
 
@@ -267,7 +383,6 @@ struct CodexBankedWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "CodexBanked", provider: BankedProvider()) { entry in
             BankedWidgetView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("Banked resets")
         .description("How many banked resets you still have. On the Home Screen widget, mark one as used without opening the app.")
@@ -277,9 +392,14 @@ struct CodexBankedWidget: Widget {
 
 struct BankedWidgetView: View {
     @Environment(\.widgetFamily) private var family
+    @Environment(\.widgetRenderingMode) private var renderingMode
     var entry: StatusEntry
 
     private var count: Int { entry.content?.bankedCount ?? 0 }
+
+    private var accent: Color {
+        renderingMode == .accented ? .primary : HighEnd.coral
+    }
 
     var body: some View {
         Group {
@@ -303,30 +423,43 @@ struct BankedWidgetView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             default:
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("BANKED")
-                        .font(.caption2.weight(.bold))
-                        .tracking(1.1)
-                        .foregroundStyle(.secondary)
+                        .font(.caption2.weight(.semibold))
+                        .tracking(0.8)
+                        .foregroundStyle(HighEnd.mist)
                     Text("\(count)")
-                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                        .font(.system(size: 40, weight: .semibold, design: .default))
+                        .foregroundStyle(accent)
+                        .widgetAccentable()
                     Text(count == 1 ? "reset available" : "resets available")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(HighEnd.mist)
+                    Spacer(minLength: 0)
                     if count > 0, entry.content != nil {
                         Button(intent: MarkBankedResetUsedIntent()) {
-                            Text("Used")
-                                .frame(maxWidth: .infinity)
+                            Text("Used banked reset")
+                                .font(.caption2.weight(.medium))
+                                .foregroundStyle(HighEnd.coralSoft)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(HighEnd.coral.opacity(0.14), in: Capsule())
+                                .overlay(Capsule().stroke(HighEnd.hairline, lineWidth: 0.5))
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
+                        .buttonStyle(.plain)
                     }
-                    Spacer(minLength: 0)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             }
         }
         .accessibilityLabel("\(count) banked \(count == 1 ? "reset" : "resets") available")
         .widgetURL(URL(string: "codexreset://latest"))
+        .containerBackground(for: .widget) {
+            if family.isHomeScreen {
+                HighEndBackground(celebrating: false)
+            } else {
+                AccessoryWidgetBackground()
+            }
+        }
     }
 }
