@@ -46,13 +46,15 @@ Identifiers → **App IDs** → **+** → **App**. Create these three. Use **Exp
 
 **Notification extension**
 
+Register this App ID as well. The archive signs three bundle IDs, and the upload fails if this one is missing.
+
 - Description: `Codex Reset Tracker Notification`
 - Bundle ID: `com.arnar111.codexresettracker.notification`
-- No extra capability
+- Capabilities: none. Do not enable App Groups on this id. The extension does not read the shared store. App Groups stay on the app id and the widget id only.
 
 Save each one. Push Notifications belongs only on the app id. The widget and the app must both include the App Group, or the widget cannot read the shared reset data.
 
-You do not create a distribution certificate or a provisioning profile by hand. The workflow asks Xcode to create them.
+You do not register iPhones, and you do not create a distribution certificate or a provisioning profile by hand. TestFlight uses App Store profiles, which are not tied to a device. The workflow asks Xcode to create those profiles.
 
 ## 2. Create the App Store Connect app
 
@@ -89,12 +91,14 @@ Also copy the **Team ID** from [Membership details](https://developer.apple.com/
 
 ## 4. How signing works in CI
 
-The project already uses Automatic signing. On an upload, the workflow passes your Team ID and the API key to `xcodebuild -allowProvisioningUpdates`. Xcode then:
+The project uses Automatic signing. The Release archive sets the signing identity to **Apple Distribution** for the iOS device SDK (`iphoneos`). Xcode then creates App Store profiles, not iOS App Development profiles. Development profiles are the ones that require a device list. This workflow does not register devices.
+
+On an upload, the workflow passes your Team ID and the API key to `xcodebuild -allowProvisioningUpdates`. Xcode then:
 
 1. Creates a cloud-managed Apple Distribution certificate for the team. The private key stays with Apple. You do not export a `.p12`.
-2. Creates App Store provisioning profiles for the three bundle IDs.
-3. Archives the Release app, including the widget and the notification extension.
-4. Uploads the `.ipa` with `xcrun altool` (or Transporter if `altool` is absent) using the same API key.
+2. Creates App Store provisioning profiles for `com.arnar111.codexresettracker`, `com.arnar111.codexresettracker.widget`, and `com.arnar111.codexresettracker.notification`.
+3. Archives the Release app with `-sdk iphoneos`, including the widget and the notification extension.
+4. Exports an IPA with method `app-store-connect` (Apple’s current name for `app-store`) and destination `export`, then uploads it with `xcrun altool` (or Transporter if `altool` is absent).
 
 Release archives use `CodexResetTrackerRelease.entitlements`, so TestFlight builds talk to production APNs (`sandbox: false`). That is separate from the API key above. Push still needs the worker secrets in the README (`APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_BUNDLE_ID`, `APNS_PRIVATE_KEY`). The APNs `.p8` and the App Store Connect `.p8` are different files.
 
@@ -147,7 +151,8 @@ To put the app on a phone that uses a different Apple ID, add that person in Tes
 | Log message | What to fix |
 | --- | --- |
 | Missing GitHub secret | Step 5. A manual run fails on purpose when a secret is empty. |
-| No signing certificate / no profiles | The API key is not Admin, or an App ID from step 1 is missing. |
+| No signing certificate / no profiles | The API key is not Admin, or one of the three App IDs from step 1 is missing. The notification id is `com.arnar111.codexresettracker.notification`. |
+| Your team has no devices / iOS App Development provisioning profiles | Do not register a device. That message means the archive asked for a development profile. The workflow now signs Release with Apple Distribution and exports with `app-store-connect`. Re-run **iOS TestFlight**. |
 | Profile does not include the App Group or Push | Enable those capabilities on the App IDs, then re-run. |
 | No suitable application record | Create the App Store Connect app in step 2 with bundle id `com.arnar111.codexresettracker`. |
 | Authentication failed / key not found | Issuer ID, Key ID, and the `.p8` are not the same key. |
