@@ -12,7 +12,7 @@ The workflow is [`.github/workflows/ios-testflight.yml`](../.github/workflows/io
 | Push to `main` | Same compile, then archives and uploads to TestFlight if the four secrets below are set. If they are missing, the upload is skipped and the compile can still pass. |
 | Actions → **iOS TestFlight** → **Run workflow** | Same upload, on the branch you pick. This run fails immediately if a secret is missing. |
 
-Each upload uses marketing version `1.0.0` and a build number of `<workflow run>.<attempt>`, so a re-run does not collide with the previous upload.
+Each upload uses the marketing version in the Xcode project (`MARKETING_VERSION`, currently `1.0.1`) and an integer build number of `run_number * 100 + run_attempt`. A re-run does not collide with the previous upload.
 
 ## 1. Create the identifiers
 
@@ -161,7 +161,7 @@ To put the app on a phone that uses a different Apple ID, add that person in Tes
 | Profile does not include the App Group or Push | Enable those capabilities on the App IDs, then re-run. |
 | No suitable application record / Cannot determine the Apple ID from Bundle ID (19) | The App Store Connect app record is missing. Re-run so the workflow can create it. If the log says an agreement is unsigned, or that Apple does not allow CREATE, follow that message. |
 | Authentication failed / key not found | Issuer ID, Key ID, and the `.p8` are not the same key. |
-| Bundle version must be higher | Re-run the workflow. The build number includes the attempt, so the new upload is a new build. |
+| Bundle version must be higher | Re-run the workflow. The build number includes the attempt, so the new upload is a higher integer build. |
 | Build did not produce the widget | The compile job failed before upload. Open the **Build app and widgets** log. |
 
 If the upload itself fails after the IPA was exported, the workflow attaches that IPA to the failed run for 7 days. It is a signed App Store binary. Download it only to retry an upload, and do not commit it.
