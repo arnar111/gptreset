@@ -74,8 +74,6 @@ jobs:
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      # Unique across re-runs of the same workflow run.
-      BUILD_NUMBER: ${{ github.run_number }}.${{ github.run_attempt }}
     steps:
       - name: Check out
         uses: actions/checkout@v4
@@ -145,6 +143,17 @@ jobs:
         with:
           path: build/signing/identity.p12.enc
           key: apple-distribution-identity-${{ github.run_id }}
+
+      - name: Set build number
+        if: steps.gate.outputs.upload == 'true'
+        run: |
+          set -euo pipefail
+          # Integer CFBundleVersion. run_number * 100 + run_attempt is unique
+          # across re-runs while attempt stays under 100, and it increases
+          # for each new workflow run.
+          build=$(( ${{ github.run_number }} * 100 + ${{ github.run_attempt }} ))
+          echo "BUILD_NUMBER=$build" >> "$GITHUB_ENV"
+          echo "Build number $build (run ${{ github.run_number }}, attempt ${{ github.run_attempt }})"
 
       - name: Archive Release
         if: steps.gate.outputs.upload == 'true'
@@ -232,7 +241,8 @@ jobs:
             echo "::error::Export did not produce an IPA."
             exit 1
           fi
-          echo "Uploading $ipa (version 1.0.0, build $BUILD_NUMBER)"
+          version=$(sed -n 's/^[[:space:]]*MARKETING_VERSION = \(.*\);/\1/p' ios/CodexResetTracker.xcodeproj/project.pbxproj | head -1)
+          echo "Uploading $ipa (version ${version}, build $BUILD_NUMBER)"
           if xcrun altool --help >/dev/null 2>&1; then
             xcrun altool --upload-app --type ios --file "$ipa" \
               --apiKey "$ASC_KEY_ID" \
