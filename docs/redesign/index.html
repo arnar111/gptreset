@@ -1,0 +1,654 @@
+<title>Codex Reset endurhönnun</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&family=Fredoka:wght@500;600;700&family=Silkscreen:wght@400;700&display=swap">
+<style>
+:root {
+  color-scheme: light;
+  --ground: #f3f1f4;
+  --panel: #ffffff;
+  --ink: #1d1b22;
+  --muted: #625d6b;
+  --rule: #dcd7e0;
+  --coral: #c9603f;
+  --coral-soft: #f0a890;
+  --chip: #ece8ef;
+  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --pixel: "Silkscreen", ui-monospace, "Courier New", monospace;
+  --round: "Fredoka", ui-rounded, "Nunito", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #131216;
+    --panel: #1c1a20;
+    --ink: #f1eef4;
+    --muted: #a39dab;
+    --rule: #2f2c35;
+    --coral: #ee9373;
+    --chip: #26232b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #131216;
+  --panel: #1c1a20;
+  --ink: #f1eef4;
+  --muted: #a39dab;
+  --rule: #2f2c35;
+  --coral: #ee9373;
+  --chip: #26232b;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.55;
+}
+.wrap { max-width: 1120px; margin: 0 auto; padding: 40px 20px 80px; display: grid; gap: 64px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.1; }
+h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: clamp(1.6rem, 3.2vw, 2.1rem); font-weight: 700; letter-spacing: -0.01em; }
+h3 { font-size: 1.25rem; font-weight: 700; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--coral); }
+.lede { font-size: 1.15rem; color: var(--muted); }
+header { display: grid; gap: 16px; }
+section { display: grid; gap: 24px; }
+.sec-head { display: grid; gap: 8px; }
+.note { font-size: 0.88rem; color: var(--muted); }
+a { color: var(--coral); }
+code { font-size: 0.9em; background: var(--chip); padding: 1px 6px; border-radius: 6px; }
+
+/* state switcher */
+.switch { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.switch span { font-size: 0.9rem; color: var(--muted); margin-right: 4px; }
+.switch button {
+  font: 600 0.92rem var(--body); color: var(--ink); background: var(--chip);
+  border: 1px solid var(--rule); border-radius: 999px; padding: 8px 16px; cursor: pointer;
+}
+.switch button[aria-pressed="true"] { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+.switch button:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+
+/* widget style blocks */
+.style-block { display: grid; gap: 16px; padding-top: 24px; border-top: 1px solid var(--rule); }
+.style-title { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; }
+.style-title .tag { font-size: 0.8rem; font-weight: 600; background: var(--chip); padding: 2px 10px; border-radius: 999px; color: var(--muted); }
+.wall {
+  display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start;
+  padding: 24px; border-radius: 28px;
+  background: linear-gradient(135deg, #3b3a52, #5d4a63 55%, #7a5a58);
+  overflow-x: auto;
+}
+.w { position: relative; flex: none; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.28); color: #fff; }
+.w.s { width: 170px; height: 170px; }
+.w.m { width: 364px; height: 170px; }
+.w-label { font-size: 0.75rem; color: rgba(255,255,255,0.72); margin-top: 6px; text-align: center; }
+.w-cell { display: grid; }
+.bullets { display: grid; gap: 6px; padding-left: 20px; margin: 0; max-width: 72ch; }
+
+/* ---------- A: Glóð (pet) ---------- */
+.pet { background: radial-gradient(circle at 25% 20%, #ffb487 0%, #f07a5a 45%, #b9446a 100%); font-family: var(--round); }
+.pet.sleepy { background: radial-gradient(circle at 25% 20%, #8e8cc9 0%, #5c5a9c 50%, #34335f 100%); }
+.pet.bank { background: radial-gradient(circle at 25% 20%, #9fe3c6 0%, #3fae9a 50%, #1f6e6f 100%); }
+.pet .in { position: absolute; inset: 0; padding: 14px; display: flex; flex-direction: column; }
+.pet .big { font-size: 30px; font-weight: 700; line-height: 1; letter-spacing: -0.01em; }
+.pet .cap { font-size: 13px; font-weight: 500; opacity: 0.85; }
+.pet .coins { display: flex; gap: 3px; align-items: center; font-size: 12px; font-weight: 600; }
+.coin { width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff4b8, #f5c542 60%, #c9921b); box-shadow: inset 0 0 0 1px rgba(120,70,0,0.35); }
+.bubble { background: rgba(255,255,255,0.95); color: #3a2230; border-radius: 16px; padding: 8px 12px; font-size: 14px; font-weight: 600; line-height: 1.2; position: relative; }
+.bubble::after { content: ""; position: absolute; left: -6px; top: 14px; border: 6px solid transparent; border-right-color: rgba(255,255,255,0.95); border-left: 0; }
+.jar { display: flex; flex-wrap: wrap-reverse; gap: 2px; width: 44px; padding: 4px; min-height: 36px; border: 2px solid rgba(255,255,255,0.7); border-top: 0; border-radius: 0 0 12px 12px; align-content: flex-start; }
+
+/* ---------- B: Arcade ---------- */
+.arc {
+  background-color: #0d0f14;
+  background-image: radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1.2px);
+  background-size: 6px 6px;
+  font-family: var(--pixel); color: #ffc34d;
+}
+.arc::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.18) 0 1px, transparent 1px 3px); pointer-events: none; }
+.arc .in { position: absolute; inset: 0; padding: 12px 14px; display: flex; flex-direction: column; z-index: 1; }
+.arc .lbl { font-size: 9px; letter-spacing: 0.08em; color: #7fe7c4; }
+.arc .num { font-size: 50px; line-height: 0.95; font-weight: 700; text-shadow: 0 0 10px rgba(255,195,77,0.55); }
+.arc .unit { font-size: 14px; }
+.arc .mint { color: #7fe7c4; text-shadow: 0 0 8px rgba(127,231,196,0.5); }
+.arc .row { display: flex; justify-content: space-between; align-items: center; font-size: 10px; }
+.px-heart { display: inline-block; width: 11px; height: 10px; margin-right: 2px; background:
+  linear-gradient(#ffc34d, #ffc34d) 1px 0/3px 2px no-repeat,
+  linear-gradient(#ffc34d, #ffc34d) 6px 0/3px 2px no-repeat,
+  linear-gradient(#ffc34d, #ffc34d) 0 2px/11px 3px no-repeat,
+  linear-gradient(#ffc34d, #ffc34d) 1px 5px/9px 2px no-repeat,
+  linear-gradient(#ffc34d, #ffc34d) 3px 7px/5px 2px no-repeat,
+  linear-gradient(#ffc34d, #ffc34d) 5px 9px/1px 1px no-repeat; }
+.px-heart.off { opacity: 0.18; }
+.ticker { border-top: 1px dashed rgba(127,231,196,0.4); padding-top: 6px; font-size: 10px; color: #7fe7c4; white-space: nowrap; overflow: hidden; }
+.ticker span { display: inline-block; animation: tick 9s linear infinite; }
+@keyframes tick { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
+.blink { animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0.25; } }
+.arc .panel { flex: 1; border: 1px solid rgba(255,195,77,0.35); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+
+/* ---------- C: Hringur ---------- */
+.ring { background: linear-gradient(150deg, #fff3ea 0%, #fde1f0 50%, #e4e2ff 100%); color: #2b2140; font-family: var(--display); }
+.ring.hot { background: linear-gradient(150deg, #ffe6c9 0%, #ffc1b0 50%, #f7a8d6 100%); }
+.ring .in { position: absolute; inset: 0; padding: 14px; display: flex; gap: 14px; }
+.ring svg text { font-family: var(--display); }
+.ring .k { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #7b5d86; }
+.ring .v { font-size: 22px; font-weight: 800; line-height: 1.05; }
+.ring .pill { display: inline-flex; align-items: center; gap: 4px; background: #2b2140; color: #fff; border-radius: 999px; padding: 3px 9px; font: 600 11px var(--body); }
+.ring .pill.soft { background: rgba(43,33,64,0.1); color: #2b2140; }
+.chance { height: 8px; border-radius: 99px; background: rgba(43,33,64,0.12); overflow: hidden; }
+.chance i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #ff8a5c, #d45ad0); }
+.confetti { position: absolute; width: 6px; height: 6px; border-radius: 2px; }
+
+/* ---------- phones ---------- */
+.phones { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 28px; }
+.phone-cell { display: grid; gap: 14px; align-content: start; }
+.phone {
+  width: 290px; max-width: 100%; height: 600px; margin: 0 auto; border-radius: 44px; padding: 10px;
+  background: #0b0b0d; box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+}
+.screen { position: relative; width: 100%; height: 100%; border-radius: 36px; overflow: hidden; display: flex; flex-direction: column; }
+.island { position: absolute; top: 9px; left: 50%; transform: translateX(-50%); width: 84px; height: 24px; background: #000; border-radius: 20px; z-index: 5; }
+.sb { height: 44px; flex: none; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 22px 4px; font: 600 12px var(--body); }
+.scroll { flex: 1; overflow: hidden; padding: 6px 14px 0; display: flex; flex-direction: column; gap: 10px; }
+.tabbar { flex: none; height: 58px; display: flex; justify-content: space-around; align-items: flex-start; padding-top: 8px; font: 600 10px var(--body); }
+.tabbar div { display: grid; justify-items: center; gap: 2px; opacity: 0.5; }
+.tabbar div.on { opacity: 1; }
+.tabbar i { width: 20px; height: 20px; border-radius: 6px; background: currentColor; opacity: 0.85; display: block; }
+
+/* App 1: Bento */
+.bento { background: #f2f1f6; color: #1c1b22; }
+.bento .ttl { font: 800 26px var(--display); letter-spacing: -0.01em; }
+.bento .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tile { background: #fff; border-radius: 18px; padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+.tile.wide { grid-column: span 2; }
+.tile .k { font: 700 10px var(--body); letter-spacing: 0.08em; text-transform: uppercase; color: #8a8494; }
+.tile .v { font: 800 24px var(--display); line-height: 1.05; }
+.tile.hero { background: linear-gradient(140deg, #ff9a6b, #e2577a); color: #fff; flex-direction: row; align-items: center; gap: 12px; }
+.tile.hero .k { color: rgba(255,255,255,0.8); }
+.btn { font: 700 12px var(--body); border-radius: 999px; padding: 6px 10px; text-align: center; background: #1f7a6d; color: #fff; }
+.bars { display: flex; align-items: flex-end; gap: 4px; height: 44px; }
+.bars b { flex: 1; background: #d8d3e2; border-radius: 3px 3px 0 0; }
+.bars b.now { background: #e2577a; }
+.badges { display: flex; gap: 6px; }
+.badge { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; font: 700 13px var(--body); }
+
+/* App 2: Norðurljós */
+.aurora { background: #07090f; color: #eef3ff; }
+.aurora .sky {
+  position: absolute; inset: 0 0 auto 0; height: 340px;
+  background:
+    radial-gradient(80% 60% at 20% 10%, rgba(64,230,170,0.55), transparent 60%),
+    radial-gradient(70% 55% at 85% 20%, rgba(150,90,255,0.5), transparent 60%),
+    radial-gradient(60% 40% at 50% 55%, rgba(40,140,255,0.35), transparent 70%);
+  filter: blur(6px);
+}
+.aurora .content { position: relative; z-index: 1; display: flex; flex-direction: column; flex: 1; }
+.aurora .huge { font: 800 64px/0.9 var(--display); letter-spacing: -0.03em; }
+.aurora .sub { font: 500 13px var(--body); color: rgba(238,243,255,0.7); }
+.glass { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 18px; padding: 12px; backdrop-filter: blur(10px); }
+.tl { position: relative; height: 64px; }
+.tl .line { position: absolute; left: 0; right: 0; top: 28px; height: 2px; background: rgba(255,255,255,0.18); }
+.tl .dot { position: absolute; top: 22px; width: 14px; height: 14px; border-radius: 50%; transform: translateX(-50%); }
+.tl .lab { position: absolute; top: 42px; transform: translateX(-50%); font: 600 9px var(--body); color: rgba(238,243,255,0.6); white-space: nowrap; }
+
+/* App 3: Glóð */
+.gloed { background: linear-gradient(180deg, #ffe9dc 0%, #ffd6cf 45%, #f7c6dd 100%); color: #3a1f2e; font-family: var(--round); }
+.gloed .card { background: rgba(255,255,255,0.72); border-radius: 22px; padding: 12px; }
+.gloed .row { display: flex; align-items: center; gap: 10px; }
+.ach { display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; align-items: center; font-size: 12px; font-weight: 600; }
+.ach .ic { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; font-size: 13px; color: #fff; }
+.prog { height: 6px; border-radius: 99px; background: rgba(58,31,46,0.12); overflow: hidden; }
+.prog i { display: block; height: 100%; background: #f07a5a; border-radius: 99px; }
+
+/* plan */
+.phases { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+.phase { background: var(--panel); border: 1px solid var(--rule); border-radius: 18px; padding: 20px; display: grid; gap: 10px; align-content: start; }
+.phase ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 0.95rem; }
+.phase .when { font-size: 0.8rem; font-weight: 700; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+.feat { width: 100%; border-collapse: collapse; font-size: 0.94rem; }
+.feat th, .feat td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.feat th { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.tbl { overflow-x: auto; background: var(--panel); border: 1px solid var(--rule); border-radius: 18px; }
+.warn { background: var(--panel); border: 1px solid var(--rule); border-left: 4px solid var(--coral); border-radius: 12px; padding: 16px 20px; display: grid; gap: 8px; }
+.srcs { font-size: 0.9rem; display: grid; gap: 4px; padding-left: 20px; margin: 0; }
+.glod-anim { animation: glodBob 2.6s ease-in-out infinite; transform-origin: 50% 100%; }
+.glod-anim .eyes { animation: glodBlink 3.8s infinite; transform-origin: 50% 53%; transform-box: view-box; }
+.glod-anim .tip { animation: glodSway 1.9s ease-in-out infinite; transform-origin: 50% 90%; transform-box: view-box; }
+.glod-anim.sleepy { animation-duration: 5s; }
+.glod-anim.happy { animation: glodHop 0.9s ease-in-out infinite; }
+@keyframes glodBob { 0%,100% { transform: translateY(0) scaleY(1); } 50% { transform: translateY(-4%) scaleY(1.04); } }
+@keyframes glodHop { 0%,100% { transform: translateY(0) scaleY(1); } 40% { transform: translateY(-9%) scaleY(1.08); } 80% { transform: translateY(0) scaleY(0.94); } }
+@keyframes glodBlink { 0%,94%,100% { transform: scaleY(1); } 97% { transform: scaleY(0.1); } }
+@keyframes glodSway { 0%,100% { transform: skewX(-3deg); } 50% { transform: skewX(4deg); } }
+.bankpanel { background: rgba(255,255,255,0.18); border-radius: 18px; padding: 10px; display: flex; flex-direction: column; gap: 2px; width: 112px; flex: none; }
+.usechip { align-self: flex-start; background: rgba(255,255,255,0.92); color: #3a1f2e; border-radius: 999px; padding: 3px 10px; font: 700 11px var(--round); margin-top: auto; }
+.chosen { font-size: 0.8rem; font-weight: 700; background: var(--coral); color: #fff; padding: 2px 10px; border-radius: 999px; }
+@media (prefers-reduced-motion: reduce) { .ticker span, .blink, .glod-anim, .glod-anim .eyes, .glod-anim .tip { animation: none; } }
+@media (max-width: 440px) { .wall { padding: 14px; gap: 14px; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Codex Reset Tracker · tillaga · 25. sept 2026</div>
+    <h1>Skemmtilegri widgets, betra app</h1>
+    <p class="lede">Þrjár widget-týpur í 2×2 og 4×2, þrjú útlit á appinu og plan um nýja fídusa. Allt byggir á gögnum sem appið hefur nú þegar frá Codex Resets API: síðasta full reset, banked, scheduled, forecast (<code>reset_chance_percent</code>) og meðalbil (<code>avg_interval_days</code>).</p>
+    <p class="note">Tölur í mockups eru dæmagögn, ekki raunstaða.</p>
+  </header>
+
+  <section id="widgets">
+    <div class="sec-head">
+      <div class="eyebrow">Hluti 1</div>
+      <h2>Widgets</h2>
+      <p>Hver widget fær stílval í „Edit Widget“ (AppIntentConfiguration), svo notandinn getur haft Arcade á einni síðu og Glóð á annarri. Veldu stöðu til að sjá hvernig þær breytast.</p>
+    </div>
+    <div class="switch" role="group" aria-label="Staða">
+      <span>Staða:</span>
+      <button type="button" data-state="celebration" aria-pressed="true">Nýtt full reset</button>
+      <button type="button" data-state="tracking" aria-pressed="false">Bið (dagur 10)</button>
+      <button type="button" data-state="drought" aria-pressed="false">Löng bið (dagur 16)</button>
+      <button type="button" data-state="banked" aria-pressed="false">+1 banked</button>
+    </div>
+
+    <div class="style-block">
+      <div class="style-title"><h3>A · Glóð</h3><span class="tag">Tamagotchi-stemning</span><span class="chosen">Valið · í smíðum</span></div>
+      <p>Lítill logi sem lifir í widgetinu. Hann er í skýjunum eftir reset, verður þreyttur þegar biðin fer yfir meðalbilið og safnar banked resets sem gullpeningum í krukku. Banked er stærsta talan á báðum stærðum. Ýttu á Glóð í widgetinu og hann hoppar.</p>
+      <div class="wall" id="wallA"></div>
+    </div>
+
+    <div class="style-block">
+      <div class="style-title"><h3>B · Arcade</h3><span class="tag">LED stigatafla</span></div>
+      <p>Punktaskjár með pixla-letri. Dagar síðan reset eru „score“, banked eru „credits“ sem hjörtu og scheduled rennur sem ticker neðst. Litir eru amber og mint, ekki arcade-rauður, í samræmi við DESIGN.md.</p>
+      <div class="wall" id="wallB"></div>
+    </div>
+
+    <div class="style-block">
+      <div class="style-title"><h3>C · Hringur</h3><span class="tag">Candy gauge</span></div>
+      <p>Hringur sem fyllist frá síðasta full reset að meðalbilinu. Stóri 4×2 sýnir líka forecast-líkur þegar Codex Resets birtir þær. Við reset fyllist hringurinn og konfetti birtist.</p>
+      <div class="wall" id="wallC"></div>
+    </div>
+
+    <p class="note">WidgetKit spilar ekki stöðugar hreyfimyndir. Ticker og blikk hér eru bara til að sýna hugmyndina; í appinu verða þau kyrr, en skipti milli timeline-færslna fá <code>contentTransition(.numericText())</code> og <code>.transition</code>.</p>
+  </section>
+
+  <section id="app">
+    <div class="sec-head">
+      <div class="eyebrow">Hluti 2</div>
+      <h2>Þrjú útlit á appinu</h2>
+      <p>Sama gagnalíkan og sama AppModel, þrjár mismunandi Status-síður. Hægt væri að velja milli þeirra í Settings (Theme), eða við veljum eitt og hendum hinum.</p>
+    </div>
+    <div class="phones">
+      <div class="phone-cell">
+        <div class="phone"><div class="screen bento">
+          <div class="island"></div>
+          <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+          <div class="scroll">
+            <div class="ttl">Codex Resets</div>
+            <div class="grid">
+              <div class="tile hero wide">
+                <svg width="74" height="74" viewBox="0 0 74 74" aria-hidden="true"><circle cx="37" cy="37" r="30" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="8"/><circle cx="37" cy="37" r="30" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="32" transform="rotate(-90 37 37)"/><text x="37" y="42" text-anchor="middle" fill="#fff" font-family="Bricolage Grotesque, system-ui" font-weight="800" font-size="16">83%</text></svg>
+                <div><div class="k">Síðan full reset</div><div class="v" style="font-size:30px">10d 7h</div><div style="font-size:11px;opacity:.85">Meðalbil 12,4 dagar</div></div>
+              </div>
+              <div class="tile">
+                <div class="k">Banked</div>
+                <div class="v">2</div>
+                <div style="display:flex;gap:3px"><span class="coin"></span><span class="coin"></span></div>
+                <div class="btn">Nota eitt</div>
+              </div>
+              <div class="tile">
+                <div class="k">Næsta</div>
+                <div class="v" style="font-size:20px">&lt; 15h</div>
+                <div style="font-size:11px;color:#8a8494">Fös 26. sept · 06:59</div>
+                <div style="font-size:11px;font-weight:700;color:#6b58c9">Forecast 40%</div>
+              </div>
+              <div class="tile wide">
+                <div class="k">Bil milli resets (síðustu 8)</div>
+                <div class="bars"><b style="height:60%"></b><b style="height:35%"></b><b style="height:80%"></b><b style="height:50%"></b><b style="height:95%"></b><b style="height:40%"></b><b style="height:55%"></b><b class="now" style="height:70%"></b></div>
+              </div>
+              <div class="tile wide" style="flex-direction:row;align-items:center;justify-content:space-between">
+                <div><div class="k">Afrek</div><div style="font:700 13px var(--body)">3 af 12</div></div>
+                <div class="badges"><span class="badge" style="background:#ffe1d3;color:#c9603f">⚡</span><span class="badge" style="background:#d9f3ea;color:#1f7a6d">🏦</span><span class="badge" style="background:#e6e1ff;color:#6b58c9">⏳</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="tabbar" style="background:rgba(255,255,255,0.9)"><div class="on" style="color:#e2577a"><i></i>Status</div><div><i></i>Saga</div><div><i></i>Tölfræði</div></div>
+        </div></div>
+        <h3>1 · Bento</h3>
+        <p>Allt á einum skjá í flísum: hringur, banked með „Nota eitt“, næsta reset, graf yfir bil og afrek. Fylgir ljósu og dökku kerfisútliti. Öruggasta og „Apple-legasta“ týpan.</p>
+      </div>
+
+      <div class="phone-cell">
+        <div class="phone"><div class="screen aurora">
+          <div class="island"></div>
+          <div class="sky"></div>
+          <div class="content">
+            <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+            <div class="scroll" style="gap:12px">
+              <div style="font:700 11px var(--body);letter-spacing:.12em;text-transform:uppercase;color:rgba(238,243,255,.7);margin-top:18px">Síðan full reset</div>
+              <div class="huge">10d<br>7h 12m</div>
+              <div class="sub">Þri 16. sept · 01:30 · lengra en 6 af síðustu 8</div>
+              <div style="display:flex;gap:8px;margin-top:6px">
+                <div class="glass" style="flex:1"><div class="sub">Banked</div><div style="font:800 26px var(--display)">2</div></div>
+                <div class="glass" style="flex:1"><div class="sub">Næsta</div><div style="font:800 26px var(--display)">&lt;15h</div></div>
+              </div>
+              <div class="glass">
+                <div class="sub" style="margin-bottom:2px">Tímalína</div>
+                <div class="tl">
+                  <div class="line"></div>
+                  <span class="dot" style="left:6%;background:#ff9a6b"></span><span class="lab" style="left:10%">2. ág</span>
+                  <span class="dot" style="left:30%;background:#40e6aa"></span><span class="lab" style="left:30%">14. ág</span>
+                  <span class="dot" style="left:52%;background:#ff9a6b"></span><span class="lab" style="left:52%">28. ág</span>
+                  <span class="dot" style="left:74%;background:#ff9a6b"></span><span class="lab" style="left:71%">16. sept</span>
+                  <span class="dot" style="left:94%;background:transparent;border:2px dashed #b995ff"></span><span class="lab" style="left:93%">næst?</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="tabbar" style="position:relative;z-index:1;background:rgba(7,9,15,.8);color:#eef3ff"><div class="on"><i style="background:#40e6aa"></i>Status</div><div><i></i>Saga</div><div><i></i>Tölfræði</div></div>
+        </div></div>
+        <h3>2 · Norðurljós</h3>
+        <p>Dökkt og dramatískt. Risastór teljari sem tifar í rauntíma yfir norðurljósa-gradient sem hreyfist hægt. Lárétt tímalína þar sem hægt er að renna milli resets. Við nýtt reset springa norðurljósin út.</p>
+      </div>
+
+      <div class="phone-cell">
+        <div class="phone"><div class="screen gloed">
+          <div class="island"></div>
+          <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+          <div class="scroll">
+            <div class="card" style="display:grid;justify-items:center;gap:4px;padding-top:8px">
+              <div id="appPet"></div>
+              <div style="font-size:26px;font-weight:700;line-height:1">10d 7h</div>
+              <div style="font-size:13px;opacity:.75">„Ég er alveg að sofna … reset bráðum?“</div>
+            </div>
+            <div class="card row" style="justify-content:space-between">
+              <div><div style="font-size:12px;opacity:.7;font-weight:700;letter-spacing:.06em">BANKED</div><div style="font-size:48px;font-weight:700;line-height:1">2</div></div>
+              <div class="jar" style="border-color:#3a1f2e55;width:52px"><span class="coin"></span><span class="coin"></span></div>
+              <div class="btn" style="background:#3a1f2e">Nota</div>
+            </div>
+            <div class="card" style="display:grid;gap:8px">
+              <div style="font-size:12px;opacity:.7">Afrek</div>
+              <div class="ach"><span class="ic" style="background:#f07a5a">⚡</span>Fyrst(ur) á staðinn<span style="opacity:.6">✓</span></div>
+              <div class="ach"><span class="ic" style="background:#3fae9a">🏦</span>Bankastjóri · 3 banked<span style="opacity:.6">2/3</span></div>
+              <div class="prog"><i style="width:66%"></i></div>
+              <div class="ach"><span class="ic" style="background:#5c5a9c">🌙</span>Þolinmæði · 14 daga bið<span style="opacity:.6">10/14</span></div>
+              <div class="prog"><i style="width:71%;background:#5c5a9c"></i></div>
+            </div>
+          </div>
+          <div class="tabbar" style="background:rgba(255,255,255,.6)"><div class="on" style="color:#f07a5a"><i></i>Glóð</div><div><i></i>Saga</div><div><i></i>Afrek</div></div>
+        </div></div>
+        <h3>3 · Glóð <span class="chosen">Valið</span></h3>
+        <p>Leikjavætt. Sama karakter og í widget A er miðpunkturinn, með skap, peningakrukku og afrek sem opnast af hegðun sem appið sér sjálft á símanum. Mest „fun“, mest vinna.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="plan">
+    <div class="sec-head">
+      <div class="eyebrow">Hluti 3</div>
+      <h2>Fídusar sem vantar</h2>
+      <p>Raðað eftir því hversu mikið þeir gefa miðað við vinnu. „Gögn“ segir hvaðan upplýsingarnar koma, svo ekkert þarf nýjan bakenda nema annað sé tekið fram.</p>
+    </div>
+    <div class="tbl">
+      <table class="feat">
+        <thead><tr><th>Fídus</th><th>Hvað</th><th>Gögn / tækni</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Stílval á widgets</strong></td><td>Glóð, Arcade, Hringur og núverandi High-End valið per widget</td><td><code>AppIntentConfiguration</code> + <code>WidgetConfigurationIntent</code></td></tr>
+          <tr><td><strong>Tölfræði-flipi</strong></td><td>Bil milli resets, meðalbil, lengsta bið, resets á mánuði, full vs banked</td><td>Reiknað úr <code>state.events</code> + <code>stats.avg_interval_days</code>, teiknað með Swift Charts</td></tr>
+          <tr><td><strong>Forecast-spjald</strong></td><td>Líkur á reset og gluggi, þegar Codex Resets birtir það</td><td><code>WatchSignal.resetChancePercent</code>, <code>forecastWindow</code> (þegar sótt)</td></tr>
+          <tr><td><strong>Live Activity</strong></td><td>Niðurtalning að scheduled reset á Lock Screen og í Dynamic Island</td><td>ActivityKit, <code>scheduled.scheduledFor</code>; síðar push frá worker</td></tr>
+          <tr><td><strong>Control Center takki</strong></td><td>„Used banked reset“ beint úr Control Center</td><td><code>ControlWidgetButton</code> (iOS 18) + núverandi <code>MarkBankedResetUsedIntent</code></td></tr>
+          <tr><td><strong>Afrek</strong></td><td>T.d. opnaðir appið innan 10 mín frá reset, átt 3+ banked, 14 daga bið, notaðir 10 banked</td><td>Staðbundið, nýtt <code>AchievementLog</code> í PersistedState</td></tr>
+          <tr><td><strong>Deilispjald</strong></td><td>Mynd „10 dagar síðan reset“ í stíl valins þema til að deila</td><td><code>ImageRenderer</code> + <code>ShareLink</code></td></tr>
+          <tr><td><strong>Fögnuður í appinu</strong></td><td>Konfetti og haptic þegar appið opnast innan celebration-gluggans</td><td>Núverandi <code>isCelebrating</code> + <code>Haptics</code></td></tr>
+          <tr><td><strong>App-icon per þema</strong></td><td>Glóð-, Arcade- og Norðurljós-icon</td><td><code>setAlternateIconName</code></td></tr>
+          <tr><td><strong>StandBy</strong></td><td>Stærra letur og næturútgáfa þegar síminn er í StandBy</td><td><code>widgetRenderingMode</code>, <code>showsWidgetContainerBackground</code></td></tr>
+          <tr><td><strong>Íslenska (valkvætt)</strong></td><td>Þýðing á öllum textum</td><td>String Catalog; málfarsyfirlit gegn <a href="https://gitlab.com/icelandic-lt/mt">icelandic-lt/mt</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="sec-head">
+      <h2>Plan í fjórum áföngum</h2>
+      <p>Hver áfangi er sjálfstætt PR sem fer í gegnum TestFlight-workflowið áður en næsti byrjar. Rökfræði fer í <code>CodexResetCore</code> svo hún er prófuð með <code>swift test</code> á Linux; SwiftUI-hlutinn er bara compileaður á Mac-runnernum.</p>
+    </div>
+    <div class="phases">
+      <div class="phase">
+        <div class="when">Áfangi 1</div>
+        <h3>Grunnur</h3>
+        <ul>
+          <li><code>WidgetStyle</code> enum og <code>Mood</code>-útreikningur (nýtt, þreytt, banked) í Core, með prófum</li>
+          <li><code>ResetStatsDerivation</code>: bil, meðaltal, lengsta bið</li>
+          <li>Þema-tokens færð úr <code>Theme.swift</code> og <code>HighEnd</code> í sameiginlega skrá</li>
+          <li>DESIGN.md uppfært</li>
+        </ul>
+      </div>
+      <div class="phase">
+        <div class="when">Áfangi 2</div>
+        <h3>Widgets</h3>
+        <ul>
+          <li>Glóð, Arcade og Hringur í small og medium</li>
+          <li>Stílval með AppIntentConfiguration; High-End áfram sjálfgefið svo núverandi widgets breytast ekki</li>
+          <li>Accented/tinted útgáfa af hverjum stíl</li>
+          <li>Control Center takki</li>
+        </ul>
+      </div>
+      <div class="phase">
+        <div class="when">Áfangi 3</div>
+        <h3>Appið</h3>
+        <ul>
+          <li>Valið útlit (1, 2 eða 3) á Status</li>
+          <li>Tölfræði-flipi með Swift Charts</li>
+          <li>Forecast-spjald, fögnuður, deilispjald</li>
+          <li>Afrek, ef útlit 3 verður fyrir valinu</li>
+        </ul>
+      </div>
+      <div class="phase">
+        <div class="when">Áfangi 4</div>
+        <h3>Kerfið</h3>
+        <ul>
+          <li>Live Activity fyrir scheduled reset</li>
+          <li>Push-to-start frá Cloudflare worker (krefst viðbótar í <code>backend/</code>)</li>
+          <li>Alternate app icons</li>
+          <li>Íslensk þýðing ef óskað</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="warn">
+      <h3>Atriði sem gætu skipt máli fyrir App Store</h3>
+      <p>Ekkert af hönnuninni notar lógó, liti eða nöfn OpenAI umfram það sem appið gerir nú. Mascot-inn Glóð er eigin karakter. Ef hann færi að líkjast OpenAI-merki gæti það fallið undir kafla 5.2 (Intellectual Property) í App Review Guidelines. Textinn „Not affiliated with OpenAI“ og tilvísun í Codex Resets heldur sér á öllum útlitum.</p>
+      <p>Ég hef ekki fundið skilmála Codex Resets API um tíðni eða notkun umfram það sem stendur í README (worker virðir <code>429</code> og <code>Retry-After</code>). Live Activity push bætir ekki við köllum á API-ið, því worker pollar nú þegar á 2 mínútna fresti.</p>
+    </div>
+
+    <div class="sec-head">
+      <h3>Heimildir</h3>
+      <ul class="srcs">
+        <li><a href="https://developer.apple.com/documentation/widgetkit/appintentconfiguration">WidgetKit: AppIntentConfiguration</a></li>
+        <li><a href="https://developer.apple.com/documentation/widgetkit/controlwidget">WidgetKit: ControlWidget (iOS 18)</a></li>
+        <li><a href="https://developer.apple.com/documentation/activitykit">ActivityKit (Live Activities)</a></li>
+        <li><a href="https://developer.apple.com/design/human-interface-guidelines/widgets">Human Interface Guidelines: Widgets</a></li>
+        <li><a href="https://developer.apple.com/documentation/swiftui/imagerenderer">SwiftUI: ImageRenderer</a></li>
+        <li><a href="https://developer.apple.com/documentation/uikit/uiapplication/setalternateiconname(_:completionhandler:)">UIKit: setAlternateIconName</a></li>
+        <li><a href="https://developer.apple.com/app-store/review/guidelines/#intellectual-property">App Review Guidelines 5.2</a></li>
+        <li><a href="https://codex-resets.com/api/docs">Codex Resets API docs</a> (reitirnir <code>reset_chance_percent</code>, <code>forecast_window</code>, <code>avg_interval_days</code> eru þegar í <code>DTOs.swift</code>)</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var STATES = {
+    celebration: { big: "RESET!", cap: "23m ago", days: 0, hrs: 0, ring: 1, banked: 2, cue: null, next: null, chance: null, mood: "happy", line: "Fresh limits! Go build.", arcLbl: "NEW HIGH SCORE" },
+    tracking:    { big: "10d 7h", cap: "since full", days: 10, hrs: 7, ring: 0.83, banked: 2, cue: null, next: "< 15h", chance: 40, mood: "ok", line: "Day 10. Holding up fine.", arcLbl: "DAYS SINCE RESET" },
+    drought:     { big: "16d 2h", cap: "since full", days: 16, hrs: 2, ring: 1, banked: 0, cue: null, next: null, chance: 65, mood: "sleepy", line: "Zzz… over the average.", arcLbl: "DAYS SINCE RESET" },
+    banked:      { big: "+1", cap: "3h ago", days: 10, hrs: 7, ring: 0.83, banked: 3, cue: "+1 · 3h ago", next: "< 15h", chance: 40, mood: "rich", line: "Ooh, a coin for the jar!", arcLbl: "BONUS CREDIT" }
+  };
+  var AVG = 12.4;
+
+  function flame(size, mood) {
+    var body = mood === "sleepy" ? "#ffd3a8" : "#ffe28a";
+    var core = mood === "sleepy" ? "#ff9f7a" : "#ff8a3d";
+    var eyes;
+    if (mood === "happy") {
+      eyes = '<path d="M36 52 q5 -6 10 0" stroke="#3a1f2e" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M54 52 q5 -6 10 0" stroke="#3a1f2e" stroke-width="3" fill="none" stroke-linecap="round"/>';
+    } else if (mood === "sleepy") {
+      eyes = '<path d="M36 53 h10" stroke="#3a1f2e" stroke-width="3" stroke-linecap="round"/><path d="M54 53 h10" stroke="#3a1f2e" stroke-width="3" stroke-linecap="round"/>';
+    } else {
+      eyes = '<circle cx="41" cy="52" r="4" fill="#3a1f2e"/><circle cx="59" cy="52" r="4" fill="#3a1f2e"/><circle cx="42.5" cy="50.5" r="1.3" fill="#fff"/><circle cx="60.5" cy="50.5" r="1.3" fill="#fff"/>';
+    }
+    var mouth = mood === "sleepy"
+      ? '<ellipse cx="50" cy="66" rx="4" ry="3" fill="#3a1f2e"/>'
+      : '<path d="M42 62 q8 9 16 0" stroke="#3a1f2e" stroke-width="3" fill="' + (mood === "happy" ? "#c2415a" : "none") + '" stroke-linecap="round"/>';
+    var extra = "";
+    if (mood === "happy") extra = '<path d="M14 20 l3 7 7 3 -7 3 -3 7 -3 -7 -7 -3 7 -3z" fill="#fff"/><path d="M84 12 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z" fill="#fff"/>';
+    if (mood === "sleepy") extra = '<text x="74" y="26" font-size="14" font-weight="700" fill="#fff" font-family="Fredoka, sans-serif">z</text><text x="84" y="14" font-size="10" font-weight="700" fill="#fff" font-family="Fredoka, sans-serif">z</text>';
+    if (mood === "rich") extra = '<circle cx="80" cy="72" r="10" fill="#f5c542" stroke="#c9921b" stroke-width="2"/><text x="80" y="76.5" text-anchor="middle" font-size="12" font-weight="700" fill="#8a5a00" font-family="Fredoka, sans-serif">+1</text>';
+    var blush = mood !== "sleepy" ? '<ellipse cx="33" cy="60" rx="5" ry="3" fill="#ff7a8a" opacity=".55"/><ellipse cx="67" cy="60" rx="5" ry="3" fill="#ff7a8a" opacity=".55"/>' : "";
+    var anim = mood === "sleepy" ? "glod-anim sleepy" : mood === "happy" ? "glod-anim happy" : "glod-anim";
+    return '<svg class="' + anim + '" width="' + size + '" height="' + size + '" viewBox="0 0 100 100" aria-hidden="true">' +
+      '<g class="tip"><path d="M50 6 C58 24 80 34 80 60 C80 80 66 92 50 92 C34 92 20 80 20 60 C20 44 30 36 34 26 C38 34 42 38 44 38 C44 26 46 16 50 6Z" fill="' + core + '"/>' +
+      '<path d="M50 24 C56 36 72 44 72 62 C72 76 62 86 50 86 C38 86 28 76 28 62 C28 50 36 44 40 38 C44 44 48 44 50 24Z" fill="' + body + '"/></g>' +
+      '<g class="eyes">' + eyes + '</g>' + mouth + blush + extra + '</svg>';
+  }
+  function coins(n, max) {
+    var out = "";
+    for (var i = 0; i < Math.min(n, max); i++) out += '<span class="coin"></span>';
+    return out;
+  }
+  function petClass(s) { return s.mood === "sleepy" ? "pet sleepy" : s.mood === "rich" ? "pet bank" : "pet"; }
+
+  function wallA(s) {
+    var celebrating = s.mood === "happy";
+    var primary = celebrating ? "RESET!" : s.mood === "rich" ? "+1 banked" : s.days + "d " + s.hrs + "h";
+    var secondary = celebrating ? "23m ago" : s.mood === "rich" ? "3h ago · " + s.days + "d full" : "since full reset";
+    var small =
+      '<div class="w s ' + petClass(s) + '"><div class="in">' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start">' +
+          '<div style="margin:-4px 0 0 -6px">' + flame(64, s.mood) + '</div>' +
+          '<div style="display:grid;justify-items:end;line-height:1"><div style="display:flex;align-items:center;gap:4px"><span class="coin" style="width:18px;height:18px"></span><span style="font-size:38px;font-weight:700">' + s.banked + '</span></div><span class="cap" style="font-size:12px;font-weight:600">banked</span></div>' +
+        '</div>' +
+        '<div style="flex:1"></div>' +
+        '<div class="big" style="font-size:20px">' + primary + '</div><div class="cap" style="font-size:12px">' + secondary + '</div>' +
+      '</div></div>';
+    var jar = "";
+    for (var i = 0; i < Math.min(s.banked, 6); i++) jar += '<span class="coin" style="width:14px;height:14px;margin-right:-4px"></span>';
+    if (!s.banked) jar = '<span style="width:14px;height:14px;border-radius:50%;border:1px dashed rgba(255,255,255,.6);display:inline-block"></span>';
+    var medSecondary = celebrating ? "23m ago" : s.mood === "rich" ? "3h ago · " + s.days + "d " + s.hrs + "h since full" : (s.next ? "since full · next " + s.next.replace("< ", "&lt;") : "since full reset");
+    var medium =
+      '<div class="w m ' + petClass(s) + '"><div class="in" style="flex-direction:row;gap:10px">' +
+        '<div style="flex:none;align-self:flex-end">' + flame(92, s.mood) + '</div>' +
+        '<div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:0">' +
+          '<div class="bubble" style="font-size:12px;padding:6px 10px">' + s.line + '</div>' +
+          '<div style="flex:1"></div>' +
+          '<div class="cap" style="font-size:10px;font-weight:700;letter-spacing:.08em">' + (s.mood === "rich" ? "NEW" : "FULL") + '</div>' +
+          '<div class="big" style="font-size:20px">' + primary + '</div>' +
+          '<div class="cap" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + medSecondary + '</div>' +
+        '</div>' +
+        '<div class="bankpanel">' +
+          '<div class="cap" style="font-size:10px;font-weight:700;letter-spacing:.08em">BANKED</div>' +
+          '<div style="font-size:44px;font-weight:700;line-height:1">' + s.banked + '</div>' +
+          '<div style="display:flex;height:14px">' + jar + '</div>' +
+          '<div class="cap" style="font-size:11px;font-weight:600">' + (s.cue ? s.cue : "available") + '</div>' +
+          (s.banked ? '<span class="usechip">Use one</span>' : '') +
+        '</div>' +
+      '</div></div>';
+    return cell(small, "2×2") + cell(medium, "4×2");
+  }
+
+  function hearts(n) {
+    var out = "";
+    for (var i = 0; i < 3; i++) out += '<span class="px-heart' + (i < n ? "" : " off") + '"></span>';
+    return out;
+  }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function wallB(s) {
+    var celebrating = s.mood === "happy";
+    var bankedHero = s.mood === "rich";
+    var main = celebrating ? '<span class="blink">RESET!</span>' : bankedHero ? '<span class="mint">+1</span>' : pad(s.days) + '<span class="unit">D</span>';
+    var sub = celebrating ? "23M AGO" : bankedHero ? "3H AGO · " + s.days + "D FULL" : pad(s.hrs) + "H";
+    var small =
+      '<div class="w s arc"><div class="in">' +
+        '<div class="lbl">' + s.arcLbl + '</div>' +
+        '<div style="flex:1;display:flex;flex-direction:column;justify-content:center">' +
+          '<div class="num" style="' + (celebrating ? "font-size:34px" : "") + '">' + main + '</div>' +
+          '<div style="font-size:12px">' + sub + '</div>' +
+        '</div>' +
+        '<div class="row"><span class="mint">CREDITS ' + pad(s.banked) + '</span><span>' + hearts(s.banked) + '</span></div>' +
+      '</div></div>';
+    var ticker = s.next ? "NEXT RESET " + s.next.replace("< ", "&lt;") + " ▸ INSERT COIN ▸ " + (s.chance ? "CHANCE " + s.chance + "%" : "") : (s.chance ? "NO SCHEDULE ▸ CHANCE " + s.chance + "% ▸ KEEP GRINDING" : "NO SCHEDULE ▸ KEEP GRINDING");
+    var medium =
+      '<div class="w m arc"><div class="in" style="gap:8px">' +
+        '<div style="display:flex;gap:8px;flex:1">' +
+          '<div class="panel"><div class="lbl">P1 · FULL</div><div class="num" style="font-size:' + (celebrating ? "30px" : "40px") + '">' + (celebrating ? '<span class="blink">RESET!</span>' : pad(s.days) + '<span class="unit">D</span>') + '</div><div style="font-size:11px">' + (celebrating ? "23M AGO" : pad(s.hrs) + "H SINCE") + '</div></div>' +
+          '<div class="panel"><div class="lbl">CREDITS</div><div class="num mint" style="font-size:40px">' + pad(s.banked) + '</div><div style="font-size:11px">' + (s.cue ? '<span class="mint">+1 · 3H AGO</span>' : hearts(s.banked)) + '</div></div>' +
+        '</div>' +
+        '<div class="ticker"><span>' + ticker + '</span></div>' +
+      '</div></div>';
+    return cell(small, "2×2") + cell(medium, "4×2");
+  }
+
+  function ringSvg(size, frac, center, sub) {
+    var r = size / 2 - 10, c = 2 * Math.PI * r;
+    var off = c * (1 - Math.min(frac, 1));
+    return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" aria-hidden="true">' +
+      '<defs><linearGradient id="rg' + size + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff8a5c"/><stop offset="1" stop-color="#b24fd6"/></linearGradient></defs>' +
+      '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" fill="none" stroke="rgba(43,33,64,0.1)" stroke-width="12"/>' +
+      '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" fill="none" stroke="url(#rg' + size + ')" stroke-width="12" stroke-linecap="round" stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '" transform="rotate(-90 ' + size / 2 + ' ' + size / 2 + ')"/>' +
+      '<text x="50%" y="' + (size / 2 + 4) + '" text-anchor="middle" font-weight="800" font-size="' + (size > 120 ? 26 : 22) + '" fill="#2b2140">' + center + '</text>' +
+      '<text x="50%" y="' + (size / 2 + 20) + '" text-anchor="middle" font-weight="600" font-size="10" fill="#7b5d86">' + sub + '</text>' +
+      '</svg>';
+  }
+  function confetti() {
+    var colors = ["#ff8a5c", "#d45ad0", "#5fc9a8", "#f5c542", "#6b58c9"], out = "";
+    var spots = [[8,10],[30,6],[70,12],[88,8],[12,80],[92,70],[50,4],[80,88],[20,50],[62,90]];
+    spots.forEach(function (p, i) { out += '<span class="confetti" style="left:' + p[0] + '%;top:' + p[1] + '%;background:' + colors[i % 5] + ';transform:rotate(' + (i * 37) + 'deg)"></span>'; });
+    return out;
+  }
+  function wallC(s) {
+    var celebrating = s.mood === "happy";
+    var center = celebrating ? "100%" : s.days + "d";
+    var sub = celebrating ? "RESET!" : "of ~" + AVG.toString().replace(".", ",") + "d";
+    var cls = celebrating || s.mood === "sleepy" ? "w s ring hot" : "w s ring";
+    var small =
+      '<div class="' + cls + '">' + (celebrating ? confetti() : "") + '<div class="in" style="flex-direction:column;align-items:center;gap:4px;padding:10px">' +
+        ringSvg(118, celebrating ? 1 : s.days / AVG, center, sub) +
+        '<div style="display:flex;gap:4px">' + (s.cue ? '<span class="pill">+1 · 3h</span>' : "") + '<span class="pill soft">' + s.banked + ' banked</span></div>' +
+      '</div></div>';
+    var right =
+      '<div style="flex:1;display:flex;flex-direction:column;gap:8px;justify-content:center">' +
+        '<div><div class="k">' + (celebrating ? "Full reset" : "Since full") + '</div><div class="v">' + (celebrating ? "23m ago" : s.days + "d " + s.hrs + "h") + '</div></div>' +
+        (s.chance !== null
+          ? '<div><div class="k" style="display:flex;justify-content:space-between"><span>Reset chance</span><span>' + s.chance + '%</span></div><div class="chance"><i style="width:' + s.chance + '%"></i></div></div>'
+          : '<div><div class="k">Next</div><div style="font:600 13px var(--body)">Nothing scheduled</div></div>') +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap">' + (s.cue ? '<span class="pill">+1 · 3h ago</span>' : "") + '<span class="pill soft">' + s.banked + ' banked</span>' + (s.next ? '<span class="pill soft">next ' + s.next.replace("< ", "&lt; ") + '</span>' : "") + '</div>' +
+      '</div>';
+    var medium =
+      '<div class="' + cls.replace(" s ", " m ") + '">' + (celebrating ? confetti() : "") + '<div class="in" style="align-items:center">' +
+        ringSvg(142, celebrating ? 1 : s.days / AVG, center, sub) + right +
+      '</div></div>';
+    return cell(small, "2×2") + cell(medium, "4×2");
+  }
+
+  function cell(html, label) { return '<div class="w-cell">' + html + '<div class="w-label">' + label + '</div></div>'; }
+
+  function render(key) {
+    var s = STATES[key];
+    document.getElementById("wallA").innerHTML = wallA(s);
+    document.getElementById("wallB").innerHTML = wallB(s);
+    document.getElementById("wallC").innerHTML = wallC(s);
+    document.querySelectorAll(".switch button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.state === key)); });
+    try { localStorage.setItem("redesign-state", key); } catch (e) {}
+  }
+  document.querySelectorAll(".switch button").forEach(function (b) { b.addEventListener("click", function () { render(b.dataset.state); }); });
+  document.getElementById("appPet").innerHTML = flame(96, "sleepy");
+  var start = "celebration";
+  try { var saved = localStorage.getItem("redesign-state"); if (saved && STATES[saved]) start = saved; } catch (e) {}
+  render(start);
+})();
+</script>

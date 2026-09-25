@@ -48,30 +48,53 @@ struct HighEndBackground: View {
 struct StatusEntry: TimelineEntry {
     var date: Date
     var content: WidgetContent?
+    /// Index into `GlodPose.widgetCycle`. Advances once per entry.
+    var frame: Int = 0
+    var poked: Bool = false
+    var look: WidgetLook = .glod
+
+    var pose: GlodPose {
+        poked ? .poke : GlodPose.widgetFrame(frame)
+    }
 }
 
-struct StatusProvider: TimelineProvider {
+struct StatusProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> StatusEntry {
         StatusEntry(date: Date(), content: celebrationSample)
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (StatusEntry) -> Void) {
-        completion(entry(at: Date(), sampleIfEmpty: context.isPreview))
+    func snapshot(for configuration: StatusWidgetIntent, in context: Context) async -> StatusEntry {
+        makeEntry(at: Date(), sampleIfEmpty: context.isPreview, look: configuration.look)
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<StatusEntry>) -> Void) {
+    func timeline(for configuration: StatusWidgetIntent, in context: Context) async -> Timeline<StatusEntry> {
         let now = Date()
-        let entries = (0..<30).map { index in
-            entry(at: now.addingTimeInterval(TimeInterval(index * 60)), sampleIfEmpty: false)
+        var entries: [StatusEntry] = []
+        // A tap on Glóð shows the jump first, then the minute entries resume.
+        let poked = GlodPokeStore.wasPoked(within: 8, now: now)
+        if poked {
+            var jump = makeEntry(at: now, sampleIfEmpty: false, look: configuration.look)
+            jump.poked = true
+            entries.append(jump)
         }
-        completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(30 * 60))))
+        let start = poked ? now.addingTimeInterval(2.5) : now
+        for index in 0..<30 {
+            var next = makeEntry(
+                at: start.addingTimeInterval(TimeInterval(index * 60)),
+                sampleIfEmpty: false,
+                look: configuration.look
+            )
+            next.frame = index
+            entries.append(next)
+        }
+        return Timeline(entries: entries, policy: .after(now.addingTimeInterval(30 * 60)))
     }
 
-    private func entry(at date: Date, sampleIfEmpty: Bool) -> StatusEntry {
+    private func makeEntry(at date: Date, sampleIfEmpty: Bool, look: WidgetLook) -> StatusEntry {
         if let state = SharedStateStore.loadIfPresent() {
-            return StatusEntry(date: date, content: WidgetContentBuilder.make(state: state, now: date))
+            return StatusEntry(date: date, content: WidgetContentBuilder.make(state: state, now: date), look: look)
         }
-        return StatusEntry(date: date, content: sampleIfEmpty ? celebrationSample : nil)
+        return StatusEntry(date: date, content: sampleIfEmpty ? celebrationSample : nil, look: look)
     }
 
     private var celebrationSample: WidgetContent {
@@ -86,18 +109,22 @@ struct StatusProvider: TimelineProvider {
             bankedCount: 2,
             scheduledCompact: "< 15h",
             scheduledPhrase: "Within ~15h",
+            mood: .celebrating,
+            moodLine: GlodDerivation.line(for: .celebrating, bankedCount: 2),
             accessibilityLabel: "Full reset, 23 minutes ago. 2 banked resets available."
         )
     }
 }
 
 struct CodexStatusWidget: Widget {
+    static let kind = "CodexStatus"
+
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "CodexStatus", provider: StatusProvider()) { entry in
+        AppIntentConfiguration(kind: Self.kind, intent: StatusWidgetIntent.self, provider: StatusProvider()) { entry in
             StatusWidgetView(entry: entry)
         }
         .configurationDisplayName("Codex Reset")
-        .description("Time since the last full reset, a banked reset when that is the newest announcement, and how many banked resets you have left.")
+        .description("Glóð keeps count of your banked resets and the time since the last full reset. Tap Glóð to say hi.")
         .supportedFamilies([
             .systemSmall,
             .systemMedium,
@@ -116,6 +143,11 @@ struct StatusWidgetView: View {
 
     private var celebrating: Bool { entry.content?.mode == .celebration }
 
+    /// Glóð draws small and medium. Large and Lock Screen keep the High-End layout.
+    private var usesGlod: Bool {
+        entry.look == .glod && (family == .systemSmall || family == .systemMedium)
+    }
+
     private var accent: Color {
         renderingMode == .accented ? .primary : HighEnd.coral
     }
@@ -124,6 +156,10 @@ struct StatusWidgetView: View {
         Group {
             if let content = entry.content {
                 switch family {
+                case .systemMedium where usesGlod:
+                    GlodMediumView(content: content, pose: entry.pose)
+                case .systemSmall where usesGlod:
+                    GlodSmallView(content: content, pose: entry.pose)
                 case .systemMedium:
                     mediumSplit(content)
                 case .systemLarge:
@@ -145,7 +181,9 @@ struct StatusWidgetView: View {
         }
         .widgetURL(URL(string: "codexreset://latest"))
         .containerBackground(for: .widget) {
-            if family.isHomeScreen {
+            if usesGlod {
+                GlodBackground(mood: entry.content?.mood ?? .waiting)
+            } else if family.isHomeScreen {
                 HighEndBackground(celebrating: celebrating)
             } else {
                 AccessoryWidgetBackground()
@@ -556,8 +594,17 @@ struct BankedProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<StatusEntry>) -> Void) {
         let now = Date()
-        let entry = StatusEntry(date: now, content: content(at: now))
-        completion(Timeline(entries: [entry], policy: .after(now.addingTimeInterval(30 * 60))))
+        var entries: [StatusEntry] = []
+        let poked = GlodPokeStore.wasPoked(within: 8, now: now)
+        if poked {
+            entries.append(StatusEntry(date: now, content: content(at: now), poked: true))
+        }
+        let start = poked ? now.addingTimeInterval(2.5) : now
+        for index in 0..<30 {
+            let date = start.addingTimeInterval(TimeInterval(index * 60))
+            entries.append(StatusEntry(date: date, content: content(at: date), frame: index))
+        }
+        completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(30 * 60))))
     }
 
     private func content(at date: Date) -> WidgetContent? {
@@ -567,8 +614,10 @@ struct BankedProvider: TimelineProvider {
 }
 
 struct CodexBankedWidget: Widget {
+    static let kind = "CodexBanked"
+
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "CodexBanked", provider: BankedProvider()) { entry in
+        StaticConfiguration(kind: Self.kind, provider: BankedProvider()) { entry in
             BankedWidgetView(entry: entry)
         }
         .configurationDisplayName("Banked resets")
@@ -579,14 +628,9 @@ struct CodexBankedWidget: Widget {
 
 struct BankedWidgetView: View {
     @Environment(\.widgetFamily) private var family
-    @Environment(\.widgetRenderingMode) private var renderingMode
     var entry: StatusEntry
 
     private var count: Int { entry.content?.bankedCount ?? 0 }
-
-    private var accent: Color {
-        renderingMode == .accented ? .primary : HighEnd.coral
-    }
 
     var body: some View {
         Group {
@@ -610,40 +654,19 @@ struct BankedWidgetView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             default:
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("BANKED")
-                        .font(.caption2.weight(.semibold))
-                        .tracking(0.8)
-                        .foregroundStyle(HighEnd.mist)
-                    Text("\(count)")
-                        .font(.system(size: 40, weight: .semibold, design: .default))
-                        .foregroundStyle(accent)
-                        .widgetAccentable()
-                    Text(count == 1 ? "reset available" : "resets available")
-                        .font(.caption)
-                        .foregroundStyle(HighEnd.mist)
-                    Spacer(minLength: 0)
-                    if count > 0, entry.content != nil {
-                        Button(intent: MarkBankedResetUsedIntent()) {
-                            Text("Used banked reset")
-                                .font(.caption2.weight(.medium))
-                                .foregroundStyle(HighEnd.coralSoft)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(HighEnd.coral.opacity(0.14), in: Capsule())
-                                .overlay(Capsule().stroke(HighEnd.hairline, lineWidth: 0.5))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                GlodBankedSmallView(
+                    count: count,
+                    mood: entry.content?.mood ?? .waiting,
+                    pose: entry.pose,
+                    hasState: entry.content != nil
+                )
             }
         }
         .accessibilityLabel("\(count) banked \(count == 1 ? "reset" : "resets") available")
         .widgetURL(URL(string: "codexreset://latest"))
         .containerBackground(for: .widget) {
             if family.isHomeScreen {
-                HighEndBackground(celebrating: false)
+                GlodBackground(mood: entry.content?.mood ?? .waiting)
             } else {
                 AccessoryWidgetBackground()
             }
