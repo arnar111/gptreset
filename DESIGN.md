@@ -1,6 +1,30 @@
-# Design direction: B High-End
+# Design direction: Glóð (widgets and Status), B High-End (large, Lock Screen, alerts)
 
-Approved visual direction for the widgets and alerts. The companion app stays a status and settings surface.
+## Glóð
+
+Glóð is an ember character drawn from SwiftUI shapes (`Sources/CodexResetCore/UI/GlodCharacter.swift`), shared by the app and the widget extension. Its mood comes from `GlodDerivation` and follows the widget state:
+
+| Mood | When | Ground |
+| --- | --- | --- |
+| celebrating | Full-reset celebration window | `#FFC48F` → `#F07A5A` → `#B9446A`, sparkles, happy eyes |
+| rich | Newest confirmed announcement added a banked credit and one is still available | `#9FE3C6` → `#3FAE9A` → `#1F6E6F`, holds a `+1` coin |
+| content | Waiting, inside the typical gap | `#FFB487` → `#E8745A` → `#A8456A` |
+| sleepy | Waiting longer than the typical gap (`avg_interval_days`, else the mean of cached full-reset gaps) | `#8E8CC9` → `#5C5A9C` → `#34335F`, closed eyes, `z` |
+| waiting | No full reset cached | Same as content |
+
+**Banked is the largest number** on the Glóð small and medium widgets and the second card on Status (72 pt rounded, coin jar, **Use one**).
+
+- Small: Glóð top left, coin + banked count top right (38 pt), then the full-reset line (`10d 7h` / `since full reset`, `RESET!` / `23m ago`, `+1 banked` / `3h ago · 10d full`).
+- Medium: Glóð, speech bubble and FULL block, then a banked panel (count 44 pt, up to six coins, `+1 · 3h ago` or `available`, **Use one**).
+- Banked widget, small: `BANKED`, coin + count (50 pt), small Glóð, **Use one**.
+
+**Motion.** In the app Glóð idles continuously (bob, flame sway, blink) and jumps when tapped. WidgetKit does not run continuous animation, so on widgets Glóð changes pose once per timeline entry (every minute, `GlodPose.widgetCycle`) and WidgetKit animates between entries; tapping Glóð runs `PokeGlodIntent`, which shows a jump pose and settles back. Reduce Motion stops the idle loop in the app.
+
+The Status widget has a **Look** option (Glóð or Classic) in Edit Widget. Large and Lock Screen keep the High-End layout below.
+
+## B High-End
+
+Visual direction for the large widget, Lock Screen accessories, the Classic look and alerts.
 
 ## Tokens
 

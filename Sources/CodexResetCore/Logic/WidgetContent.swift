@@ -29,6 +29,10 @@ public struct WidgetContent: Equatable {
     /// Set when the newest confirmed announcement added a banked credit, including during full celebration.
     /// Example: "+1 · 3h ago". The medium widget shows this on the banked half.
     public var bankedCue: String?
+    /// Glóð's mood for this moment. See `GlodDerivation`.
+    public var mood: GlodMood
+    /// Glóð's speech bubble on the medium widget.
+    public var moodLine: String
     public var accessibilityLabel: String
 
     public init(
@@ -45,6 +49,8 @@ public struct WidgetContent: Equatable {
         fullAgeCompact: String? = nil,
         fullAgeDetailed: String? = nil,
         bankedCue: String? = nil,
+        mood: GlodMood = .content,
+        moodLine: String = "",
         accessibilityLabel: String
     ) {
         self.mode = mode
@@ -60,12 +66,21 @@ public struct WidgetContent: Equatable {
         self.fullAgeCompact = fullAgeCompact
         self.fullAgeDetailed = fullAgeDetailed
         self.bankedCue = bankedCue
+        self.mood = mood
+        self.moodLine = moodLine
         self.accessibilityLabel = accessibilityLabel
     }
 }
 
 public enum WidgetContentBuilder {
     public static func make(state: PersistedState, now: Date, locale: Locale = Locale(identifier: "en_US")) -> WidgetContent {
+        var content = makeText(state: state, now: now, locale: locale)
+        content.mood = GlodDerivation.mood(in: state, now: now)
+        content.moodLine = GlodDerivation.line(for: content.mood, bankedCount: content.bankedCount)
+        return content
+    }
+
+    private static func makeText(state: PersistedState, now: Date, locale: Locale) -> WidgetContent {
         let full = DashboardDerivation.latestFull(in: state)
         let banked = BankedInventory.availableCount(state.bankedRecords)
         let celebrating = DashboardDerivation.isCelebrating(state, now: now)

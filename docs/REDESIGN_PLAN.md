@@ -4,6 +4,10 @@ Mockups: [`docs/redesign/index.html`](redesign/index.html) (opnaðu í vafra; ta
 
 Allt byggir á gögnum sem appið hefur nú þegar: `state.events`, `scheduled`, `WatchSignal.resetChancePercent` / `forecastWindow` og `ResetStats.averageIntervalDays` (sjá `Sources/CodexResetCore/API/DTOs.swift`).
 
+## Val
+
+Glóð fyrir bæði widgets og app, með banked sem stærstu töluna og hreyfðan karakter. Smíðað í `GlodMood.swift`, `GlodCharacter.swift`, `GlodWidgetViews.swift`, `PokeGlodIntent.swift` og `GlodStage.swift`. Útfærslan er lýst í DESIGN.md.
+
 ## Þrjár widget-týpur (2×2 og 4×2)
 
 | Stíll | Hugmynd | 2×2 | 4×2 |
